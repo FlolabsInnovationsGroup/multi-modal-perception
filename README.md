@@ -1,7 +1,7 @@
 # Multimodal Perception Microservice
 This repository contains the foundational Python microservice for a multimodal perception system. It is built using FastAPI, providing a fast, asynchronous, and robust REST API.
 
-Currently, it acts as a lightweight event-driven service that receives text input and returns a concatenated string response.
+Currently, it acts as a lightweight event-driven service that receives text input and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
 
 ### Project Architecture
 
@@ -12,6 +12,8 @@ Currently, it acts as a lightweight event-driven service that receives text inpu
         │   └── process.py       # Contains the main perception trigger routes
         ├── main.py              # The central application orchestrator
         ├── schemas.py           # The single source of truth for data structures
+        ├── services/            # Service layer (e.g., OpenAI integration)
+        │   └── openai_service.py
         └── requirements.txt     # Project dependencies
 
 ### How the Code Works
@@ -25,7 +27,37 @@ The system is broken down into specific functional areas:
 
     * ``health.py``: Handles the ``GET /health`` route used by deployment managers (like Docker or Kubernetes) to check if the server is alive.
 
-    * ``process.py``: Handles the ``POST /process`` route. This is the main trigger that accepts the payload, logs the input, and executes the core logic (currently concatenating "Hello world" with the input text). Future models logic will live here.
+    * ``process.py``: Handles the ``POST /process`` route. This is the main trigger that accepts the payload, logs the input, and calls the ultra-lightweight OpenAI client to transform the text into a concise perception response.
+
+---
+
+### OpenAI Integration
+
+This microservice now integrates directly with the OpenAI Chat Completions API using an async, cached client optimized for low latency.
+
+- **Async client**: Uses `AsyncOpenAI` for non-blocking calls under FastAPI.
+- **Ultra-fast cache**: In-memory cache keyed by normalized user input to avoid redundant calls.
+- **Safe defaults**: Conservative `max_tokens`, temperature, and model selection to keep responses fast and predictable.
+
+#### Required Environment Variables
+
+Before starting the server, set at least:
+
+- **`OPENAI_API_KEY`**: Your OpenAI API key.
+
+Optional tuning (all have sensible defaults):
+
+- **`OPENAI_MODEL`**: Defaults to `gpt-4o-mini`.
+- **`OPENAI_MAX_TOKENS`**: Defaults to `256`.
+- **`OPENAI_TEMPERATURE`**: Defaults to `0.4`.
+- **`OPENAI_SYSTEM_PROMPT`**: Custom system prompt for the multimodal perception assistant.
+
+Example (Unix/macOS):
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_MODEL="gpt-4o-mini"
+```
 
 ---
 
@@ -75,6 +107,6 @@ Expected Output: ``{"status":"healthy"}``
 
     curl -X POST http://localhost:8000/process \
          -H "Content-Type: application/json" \
-         -d '{"text_input": "from the terminal"}'
+         -d '{"text_input": "What is OpenAI?"}'
 
-Expected Output: ``{"result":"Hello world from the terminal"}``
+Expected Output: OpenAI chat response. 
