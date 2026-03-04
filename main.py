@@ -1,9 +1,13 @@
 from fastapi import FastAPI
 import logging
 
+from dotenv import load_dotenv
+
 from api import health, process
 
 logging.basicConfig(level=logging.INFO)
+
+load_dotenv()
 
 app = FastAPI(
     title="Multimodal Perception Microservice",
