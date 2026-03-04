@@ -4,7 +4,7 @@ Python microservice that will serve as the foundation for a **multimodal percept
 
 ---
 
-## How It’s Built
+## How It's Built
 
 ### Architecture
 
@@ -116,7 +116,7 @@ multi-modal-perception/
 
 ## Future work (placeholders in code)
 
-- **vLLM / model integration:** The main processing logic will go in the `try` block of `process_data` in `api/process.py` (section marked `FUTURE vLLM LOGIC GOES HERE`). The current “Hello world” concatenation is a stub.
+- **vLLM / model integration:** The main processing logic will go in the `try` block of `process_data` in `api/process.py` (section marked `FUTURE vLLM LOGIC GOES HERE`). The current "Hello world" concatenation is a stub.
 - **Multimodal input/output:** When adding images or other modalities, extend the Pydantic models in `schemas.py` (e.g. optional `image_url` or `image_b64`) and the `/process` handler in `api/process.py` accordingly; the same endpoint can be extended or new endpoints can be added.
 
 ---
