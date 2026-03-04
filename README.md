@@ -2,6 +2,64 @@
 
 Python microservice that will serve as the foundation for a **multimodal perception system** (vision, language, dialogue). The service is built as a single, loosely coupled application suitable for later deployment as part of a larger suite of services.
 
+Currently, it also acts as a lightweight event-driven service that receives text input and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
+
+### Project Architecture
+
+        .
+        ├── api/
+        │   ├── __init__.py      # Marks the directory as a Python package
+        │   ├── health.py        # Contains system health check routes
+        │   └── process.py       # Contains the main perception trigger routes
+        ├── main.py              # The central application orchestrator
+        ├── schemas.py           # The single source of truth for data structures
+        ├── services/            # Service layer (e.g., OpenAI integration)
+        │   └── openai_service.py
+        └── requirements.txt     # Project dependencies
+
+### How the Code Works
+The system is broken down into specific functional areas:
+
+* **The Orchestrator (``main.py``)**: The entry point of the application. It initializes the FastAPI framework and "mounts" the individual routers from the ``api/`` folder. It does not handle business logic directly.
+
+* **Data Models (``schemas.py``)**: Uses Pydantic to strictly define the expected input and output data (e.g. ``PerceptionInput``, ``PerceptionOutput``). If a system sends malformed data, the API automatically rejects it.
+
+* **The Routers (``api/`` folder)**:
+
+    * ``health.py``: Handles the ``GET /health`` route used by deployment managers (like Docker or Kubernetes) to check if the server is alive.
+
+    * ``process.py``: Handles the ``POST /process`` route. This is the main trigger that accepts the payload, logs the input, and calls the ultra-lightweight OpenAI client to transform the text into a concise perception response.
+
+---
+
+### OpenAI Integration
+
+This microservice integrates directly with the OpenAI Chat Completions API using an async, cached client optimized for low latency.
+
+- **Async client**: Uses `AsyncOpenAI` for non-blocking calls under FastAPI.
+- **Ultra-fast cache**: In-memory cache keyed by normalized user input to avoid redundant calls.
+- **Safe defaults**: Conservative `max_tokens`, temperature, and model selection to keep responses fast and predictable.
+
+#### Required Environment Variables
+
+Before starting the server, set at least:
+
+- **`OPENAI_API_KEY`**: Your OpenAI API key.
+
+Optional tuning (all have sensible defaults):
+
+- **`OPENAI_MODEL`**: Defaults to `gpt-4o-mini`.
+- **`OPENAI_MAX_TOKENS`**: Defaults to `256`.
+- **`OPENAI_TEMPERATURE`**: Defaults to `0.4`.
+- **`OPENAI_SYSTEM_PROMPT`**: Custom system prompt for the multimodal perception assistant.
+
+Example (Unix/macOS):
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_MODEL="gpt-4o-mini"
+```
+
 ---
 
 ## How It's Built
@@ -20,13 +78,13 @@ Python microservice that will serve as the foundation for a **multimodal percept
 | `api/`                | API module: `health.py` (GET /health), `process.py` (POST /process). Keeps routes modular and testable. |
 | `schemas.py`          | Pydantic models: `PerceptionInput` (request body), `PerceptionOutput` (response body). |
 | `requirements.txt`    | Pinned dependencies (FastAPI, Uvicorn, Pydantic) for reproducible installs. |
-| `POST /process`       | Main trigger: accepts JSON with `text_input`, returns JSON with `result` (e.g. `"Hello world " + text_input`). |
+| `POST /process`       | Main trigger: accepts JSON with `text_input`, returns JSON with `result` (OpenAI response or stub). |
 | `GET /health`         | Health check for load balancers and orchestrators (e.g. Docker/Kubernetes). |
 
 ### API behavior (current)
 
 1. **Health:** `GET /health` → `{"status": "healthy"}`.
-2. **Process:** `POST /process` with body `{"text_input": "your text"}` → `{"result": "Hello world your text"}`.  
+2. **Process:** `POST /process` with body `{"text_input": "your text"}` → `{"result": "<OpenAI or stub response>"}`.  
    Any unhandled exception in the handler returns HTTP 500 with a generic error message; logs contain the real error for debugging.
 
 ### Logging
@@ -90,7 +148,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     -H "Content-Type: application/json" \
     -d '{"text_input": "from curl"}'
   ```
-  Expected: `{"result":"Hello world from curl"}`
+  Expected: `{"result":"Hello world from curl"}` (stub) or with OpenAI: `{"result":"<model response>"}`.
+
+  Example with a question:
+  ```bash
+  curl -X POST http://localhost:8000/process \
+       -H "Content-Type: application/json" \
+       -d '{"text_input": "What is OpenAI?"}'
+  ```
+  Expected output: OpenAI chat response.
 
 - **Interactive API docs:**  
   Open in a browser: [http://localhost:8000/docs](http://localhost:8000/docs) (Swagger UI).
@@ -109,6 +175,8 @@ multi-modal-perception/
 │   ├── __init__.py
 │   ├── health.py             # GET /health
 │   └── process.py            # POST /process
+├── services/                 # Service layer (e.g., OpenAI)
+│   └── openai_service.py
 └── caipo_multimodal_dataset/ # Training/eval dataset (see its README)
 ```
 
@@ -116,7 +184,7 @@ multi-modal-perception/
 
 ## Future work (placeholders in code)
 
-- **vLLM / model integration:** The main processing logic will go in the `try` block of `process_data` in `api/process.py` (section marked `FUTURE vLLM LOGIC GOES HERE`). The current "Hello world" concatenation is a stub.
+- **vLLM / model integration:** The main processing logic can be extended in `api/process.py` (e.g. swap or complement the OpenAI client with vLLM).
 - **Multimodal input/output:** When adding images or other modalities, extend the Pydantic models in `schemas.py` (e.g. optional `image_url` or `image_b64`) and the `/process` handler in `api/process.py` accordingly; the same endpoint can be extended or new endpoints can be added.
 
 ---
@@ -126,5 +194,7 @@ multi-modal-perception/
 - **fastapi** — Web framework and API definitions.
 - **uvicorn** — ASGI server that runs the FastAPI app.
 - **pydantic** — Data validation and serialization for request/response bodies.
+- **openai** — OpenAI API client for chat completions.
+- **python-dotenv** — Load environment variables from `.env`.
 
 All versions are pinned in `requirements.txt` for reproducible builds.
