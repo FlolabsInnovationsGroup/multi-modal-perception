@@ -24,23 +24,28 @@ def search_offers(
     order: str = "price",
 ) -> list[dict]:
     """Search for GPU offers. Returns list of offer dicts with 'id' (ask id)."""
-    # Vast search: filter by gpu_name, num_gpus, etc. Sort by price.
-    query = {
-        "q": {
-            "verified": {"eq": True},
-            "num_gpus": {"gte": num_gpus},
-            "rentable": {"eq": True},
-            "cuda_max_good": {"eq": True},
-        },
-        "order": [["dph_total", "asc"]],  # price ascending
+    # Vast.ai API: POST /api/v0/bundles/ with flat body (see docs.vast.ai/api-reference/search/search-offers)
+    # gpu_ram is in MB; min_gpu_ram is in GB so convert
+    body = {
+        "limit": 100,
+        "type": "ondemand",
+        "verified": {"eq": True},
+        "rentable": {"eq": True},
+        "rented": {"eq": False},
+        "num_gpus": {"gte": num_gpus},
+        "order": [["dph_total", "asc"]],
     }
     if gpu_name:
-        query["q"]["gpu_name"] = {"eq": gpu_name}
+        # Vast lists GPUs with various names; try common A100 variants (UI shows "1x A100 SXM4")
+        if gpu_name.upper() == "A100":
+            body["gpu_name"] = {"in": ["A100", "A100 SXM4", "A100-SXM4", "NVIDIA A100-SXM4-80GB", "NVIDIA A100 80GB PCIe", "A100-SXM4-80GB", "NVIDIA A100"]}
+        else:
+            body["gpu_name"] = {"eq": gpu_name}
     if min_gpu_ram:
-        query["q"]["gpu_ram"] = {"gte": min_gpu_ram}
-    r = requests.put(
-        f"{VAST_BASE}/search/asks/",
-        json=query,
+        body["gpu_ram"] = {"gte": int(min_gpu_ram * 1024)}  # GB -> MB
+    r = requests.post(
+        f"{VAST_BASE}/bundles/",
+        json=body,
         headers=_headers(),
         timeout=60,
     )
@@ -60,14 +65,18 @@ def get_cheapest_offer_price(
 ) -> tuple[float | None, str]:
     """
     Return (dollars_per_hour, description) for the cheapest matching offer, or (None, error_msg).
+    Tries A100 by name first, then falls back to any GPU with min_gpu_ram (e.g. 80GB).
     """
     offers = search_offers(gpu_name=gpu_name, num_gpus=num_gpus, min_gpu_ram=min_gpu_ram)
+    if not offers and gpu_name:
+        # Fallback: any GPU with enough RAM (Vast may use different GPU name strings)
+        offers = search_offers(gpu_name="", num_gpus=num_gpus, min_gpu_ram=min_gpu_ram)
     if not offers:
-        return None, f"No offers found for {gpu_name} ({num_gpus} GPU, {min_gpu_ram}GB+ RAM)"
+        return None, f"No offers found for {gpu_name or 'any'} ({num_gpus} GPU, {min_gpu_ram}GB+ RAM)"
     o = offers[0]
     dph = o.get("dph_total") or o.get("price")
     if dph is not None:
-        return float(dph), f"{o.get('gpu_name', gpu_name)} @ ${float(dph):.2f}/hr (cheapest)"
+        return float(dph), f"{o.get('gpu_name', gpu_name or 'GPU')} @ ${float(dph):.2f}/hr (cheapest)"
     return None, "Offer found but price not in response"
 
 
@@ -194,7 +203,7 @@ def launch_and_wait(
     if not offers:
         raise RuntimeError(f"No Vast.ai offers found for {gpu_name} with {num_gpus} GPU(s)")
     offer = offers[0]
-    offer_id = offer.get("id") or offer.get("ask_id")
+    offer_id = offer.get("id") or offer.get("ask_contract_id") or offer.get("ask_id")
     if offer_id is None:
         raise ValueError(f"Offer missing id: {offer}")
     instance_id = create_instance(

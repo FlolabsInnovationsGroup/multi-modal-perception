@@ -1,5 +1,0 @@
-# GPU cloud benchmark (RunPod vs Vast.ai) for InternVL 38B training
-requests>=2.28.0
-
-# Optional: if you run the in-cloud benchmark with PyTorch, the image already has it.
-# torch  # install on the cloud machine, not required locally

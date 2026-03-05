@@ -4,15 +4,47 @@ Run GPU benchmark on RunPod and Vast.ai within a budget (~$5 each), then compare
 Requires: RUNPOD_API_KEY, VAST_API_KEY, and SSH key added to both providers.
 Optional: SSH_KEY_PATH for scp/ssh (e.g. ~/.ssh/id_ed25519).
 Set AUTO_CONFIRM=1 or pass --yes to skip confirmation prompts.
+Use: python run_comparison.py --check  to verify setup without spending credits.
 """
 import json
+import logging
 import os
 import sys
 import time
 from pathlib import Path
 
+# Write a "started" marker immediately so you can see the script was invoked
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_started_file = _SCRIPT_DIR / "run_comparison_started.txt"
+try:
+    _started_file.write_text(
+        f"Started at {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"Python: {sys.executable}\n"
+        f"argv: {sys.argv}\n"
+    )
+except Exception:
+    pass
+
 # Add parent for imports
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(_SCRIPT_DIR))
+
+
+def _setup_logging():
+    """Log to both a file and console so you can see what's happening."""
+    log_file = _SCRIPT_DIR / "run_comparison.log"
+    log = logging.getLogger("run_comparison")
+    log.setLevel(logging.DEBUG)
+    log.handlers.clear()
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+    fh = logging.FileHandler(log_file, mode="a", encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(fmt)
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(fmt)
+    log.addHandler(fh)
+    log.addHandler(ch)
+    return log
 
 from config import (
     BUDGET_LIMIT_USD,
@@ -24,21 +56,32 @@ from config import (
     VAST_GPU_NAME,
     VAST_IMAGE,
 )
-from run_remote import run_script_ssh
-from runpod_client import (
-    create_pod,
-    get_gpu_prices,
-    get_ssh_info,
-    terminate_pod,
-    wait_until_running as runpod_wait,
-)
-from vast_client import (
-    destroy_instance,
-    get_cheapest_offer_price,
-    get_ssh_info as vast_get_ssh_info,
-    launch_and_wait,
-)
+try:
+    from run_remote import run_script_ssh
+    from runpod_client import (
+        create_pod,
+        get_gpu_prices,
+        get_ssh_info,
+        terminate_pod,
+        wait_until_running as runpod_wait,
+    )
+    from vast_client import (
+        destroy_instance,
+        get_cheapest_offer_price,
+        get_ssh_info as vast_get_ssh_info,
+        launch_and_wait,
+    )
+except ModuleNotFoundError as e:
+    err = "Error: Missing dependency (e.g. requests). From project root run: pip install -r requirements.txt"
+    for f in (sys.stdout, sys.stderr):
+        print(err, file=f, flush=True)
+    try:
+        (_SCRIPT_DIR / "run_comparison_started.txt").write_text(f"FAILED at import: {e}\n")
+    except Exception:
+        pass
+    sys.exit(1)
 
+LOG = _setup_logging()
 AUTO_CONFIRM = os.getenv("AUTO_CONFIRM", "").strip().lower() in ("1", "true", "yes")
 
 
@@ -223,12 +266,69 @@ def run_vast_benchmark(ssh_key_path: str | None, budget_usd: float) -> dict:
 
 
 def main():
+    LOG.info("main() entered")
+    print("GPU Cloud Benchmark — starting ...", flush=True)
+
+    # --- Optional: run setup check only (no credits used) ---
+    if "--check" in sys.argv or "-c" in sys.argv:
+        LOG.info("Running --check (setup verification)")
+        print("[run_comparison] Running setup check (no credits used) ...", flush=True)
+        from check_setup import check_runpod, check_vast, check_ssh_key
+        result_file = _SCRIPT_DIR / "check_setup_result.txt"
+        try:
+            result_file.write_text(f"Run started at {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        except Exception as e:
+            LOG.warning("Could not write result file: %s", e)
+        lines = [
+            "GPU Cloud Benchmark — Setup check (no credits used)",
+            "",
+        ]
+        all_ok = True
+        for name, check in [("RunPod API", check_runpod), ("Vast.ai API", check_vast), ("SSH key", check_ssh_key)]:
+            LOG.info("Checking: %s", name)
+            print(f"  Checking {name} ...", flush=True)
+            try:
+                ok, msg = check()
+            except Exception as e:
+                LOG.exception("Check %s raised", name)
+                ok, msg = False, str(e)
+            status = "PASS" if ok else "FAIL"
+            if not ok:
+                all_ok = False
+            line = f"  {name}: [{status}] {msg}"
+            lines.append(line)
+            LOG.info("%s %s: %s", name, status, msg)
+        lines.append("")
+        if all_ok:
+            lines.append("All checks passed. Run without --check to start the benchmark (will use credits).")
+        else:
+            lines.append("Fix the items above before running the benchmark.")
+        # Print and write to file so you always have a result to read
+        for line in lines:
+            print(line, flush=True)
+        try:
+            result_file.write_text("\n".join(lines) + "\n")
+            print(f"\n(Written to {result_file.name})", flush=True)
+            LOG.info("Result written to %s", result_file.name)
+        except Exception as e:
+            LOG.warning("Could not write result file: %s", e)
+        LOG.info("Exiting with code %s", 0 if all_ok else 1)
+        sys.exit(0 if all_ok else 1)
+
+    if not os.getenv("RUNPOD_API_KEY") and not os.getenv("VAST_API_KEY"):
+        LOG.error("No API keys set")
+        print("Error: Set at least one of RUNPOD_API_KEY or VAST_API_KEY in this terminal.", flush=True)
+        print("  export RUNPOD_API_KEY='your-key'", flush=True)
+        print("  export VAST_API_KEY='your-key'", flush=True)
+        sys.exit(1)
+
+    LOG.info("Fetching prices and showing credit estimate")
     budget = min(BUDGET_LIMIT_USD, BUDGET_PER_PROVIDER_USD)  # Hard cap $5 per provider
     print(f"Budget limit: ${BUDGET_LIMIT_USD} per provider (RunPod and Vast)", flush=True)
     print()
 
-    # --- Step 1: Show price/hr for each provider and confirm to proceed ---
-    print("--- Price per hour (current/estimated) ---")
+    # --- Step 1: Fetch prices and show credit usage summary ---
+    print("--- Price per hour (current) ---", flush=True)
     runpod_price_hr = None
     if os.getenv("RUNPOD_API_KEY"):
         try:
@@ -261,13 +361,29 @@ def main():
             print(f"  Vast.ai  (could not fetch price: {e})  using ~$2.00/hr")
             vast_price_hr = 2.0
     else:
-        print("  Vast.ai  (skip: VAST_API_KEY not set)")
+        print("  Vast.ai  (skip: VAST_API_KEY not set)", flush=True)
 
-    print()
-    if not confirm("Proceed with benchmark (will create machines and run tests)?", default_no=True):
-        print("Aborted by user.")
+    # --- Step 2: Estimated credit usage and time ---
+    print(flush=True)
+    print("--- Credit usage & time (estimate) ---", flush=True)
+    runpod_est_hr = (15 / 60.0) if runpod_price_hr else 0  # ~15 min typical per provider
+    vast_est_hr = (15 / 60.0) if vast_price_hr else 0
+    runpod_est_usd = runpod_est_hr * (runpod_price_hr or 1.39)
+    vast_est_usd = vast_est_hr * (vast_price_hr or 2.0)
+    total_est_usd = runpod_est_usd + vast_est_usd
+    total_est_min = 25 if (runpod_price_hr and vast_price_hr) else (20 if runpod_price_hr or vast_price_hr else 0)
+    print(f"  Estimated time:  ~{total_est_min}–45 minutes total (startup + benchmark per provider)", flush=True)
+    if runpod_price_hr:
+        print(f"  RunPod:          ~${runpod_est_usd:.2f} (typical run; cap ${BUDGET_LIMIT_USD})", flush=True)
+    if vast_price_hr:
+        print(f"  Vast.ai:         ~${vast_est_usd:.2f} (typical run; cap ${BUDGET_LIMIT_USD})", flush=True)
+    print(f"  Total estimate:  ~${total_est_usd:.2f} (actual may be less; each provider capped at ${BUDGET_LIMIT_USD})", flush=True)
+    print(flush=True)
+
+    if not confirm("Use credits and start benchmark? (will create machines, run tests, then terminate)", default_no=True):
+        print("Aborted by user. No credits used.")
         sys.exit(0)
-    print()
+    print(flush=True)
 
     ssh_key = os.getenv("SSH_KEY_PATH", os.path.expanduser("~/.ssh/id_ed25519"))
     if not os.path.isfile(ssh_key):
@@ -326,4 +442,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
+    try:
+        main()
+        print("[run_comparison] Done.", flush=True)
+    except Exception as e:
+        print(f"[run_comparison] Error: {e}", file=sys.stderr, flush=True)
+        try:
+            (_SCRIPT_DIR / "run_comparison_started.txt").write_text(f"CRASHED: {e}\n")
+        except Exception:
+            pass
+        raise

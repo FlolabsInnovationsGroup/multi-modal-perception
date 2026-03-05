@@ -42,6 +42,12 @@ Thumbs.db
 .env.local
 *.local
 
+# GPU cloud benchmark output
+gpu_cloud_benchmark/check_setup_result.txt
+gpu_cloud_benchmark/comparison_results.json
+gpu_cloud_benchmark/run_comparison.log
+gpu_cloud_benchmark/run_comparison_started.txt
+
 # Logs and local data
 *.log
 .pytest_cache/

@@ -104,9 +104,10 @@ export OPENAI_MODEL="gpt-4o-mini"
 
 ### 1. Install dependencies
 
-From the **repository root** (where `requirements.txt` and `main.py` are):
+The project uses **one `requirements.txt`** and **one `.venv`** at the **repository root** (where `main.py` is).
 
 ```bash
+# From repo root
 pip install -r requirements.txt
 ```
 

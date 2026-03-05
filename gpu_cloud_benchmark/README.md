@@ -18,13 +18,19 @@ The in-cloud benchmark reports GPU info and a short matrix-multiply throughput; 
 - **SSH access**: Add your **public SSH key** to both RunPod and Vast.ai so the runner can copy and execute the benchmark script on the machine.
   - RunPod: [SSH keys](https://docs.runpod.io/pods/configuration/use-ssh).
   - Vast: your profile / SSH key settings.
-- **Local**: Python 3.10+, `requests`. No GPU required on your laptop.
+- **Local**: Python 3.10+, `requests`. No GPU required on your laptop. Dependencies are in the **project root** `requirements.txt`; use the **root** `.venv`.
 
 ## Setup
 
+From the **project root** (one `requirements.txt`, one `.venv`):
+
 ```bash
+# From repo root
+cd /path/to/multi-modal-perception
+python -m pip install -r requirements.txt
+source .venv/bin/activate   # or on Windows: .venv\Scripts\activate
+
 cd gpu_cloud_benchmark
-pip install -r requirements.txt
 export RUNPOD_API_KEY="your-runpod-key"
 export VAST_API_KEY="your-vast-key"
 # Optional: if your SSH key is not ~/.ssh/id_ed25519 or ~/.ssh/id_rsa
@@ -33,16 +39,34 @@ export SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
 export GPU_BENCHMARK_BUDGET=5.0
 ```
 
+## Verify setup (no credits used)
+
+Before spending any credits, check that API keys and SSH are working:
+
+```bash
+# If "python run_comparison.py --check" shows NO output, your venv's python may be broken (ENOEXEC).
+# Use one of these instead:
+./run_check.sh
+# or
+python3 run_comparison.py --check
+# or
+python run_comparison.py --check
+```
+
+`run_check.sh` uses `python3` from your PATH so you always see output. This validates RunPod API, Vast.ai API, and local SSH key **without creating any pods or instances**. Fix any failures before running the full benchmark. **Logging:** the script also writes `run_comparison_started.txt`, `run_comparison.log`, and `check_setup_result.txt` in this folder.
+
 ## Run the comparison
 
 ```bash
 python run_comparison.py
 ```
 
-**Confirmations (optional):**
+**What you'll see before any credits are used:**
 
-1. **Before starting:** The script shows current price/hr for RunPod and Vast (for the GPUs you will use) and asks: *Proceed with benchmark? [y/N]*. Answer `y` to continue, or `n` to exit without creating any machines.
-2. **Before each test:** After a machine is ready (e.g. RunPod pod is up with SSH), the script asks: *Start benchmark on RunPod now? [y/N]*. You can skip that provider’s benchmark (the machine is then terminated immediately) or run it.
+1. **Price per hour** for RunPod and Vast (for the GPUs used).
+2. **Credit usage & time (estimate):** estimated total time (~25–45 min), estimated cost per provider and total, and per-provider caps ($5 default).
+3. **Confirmation:** *Use credits and start benchmark? [y/N]* — answer `y` only when you're ready to create machines and spend credits.
+4. **Per-provider (optional):** After each machine is ready, *Start benchmark on RunPod/Vast now? [y/N]* — you can skip that provider (machine is then terminated immediately) or run the benchmark.
 
 To skip all prompts (e.g. in scripts or CI), set `AUTO_CONFIRM=1` or pass `--yes`:
 
