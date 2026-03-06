@@ -6,9 +6,11 @@ This folder contains code and infrastructure to **test and compare RunPod and Va
 
 1. **RunPod**: Creates an on-demand A100 80GB pod, runs a GPU benchmark script over SSH, then terminates.
 2. **Vast.ai**: Launches an A100 instance, runs the same benchmark, then destroys it.
-3. **Comparison**: Prints startup time, total time, estimated cost, GPU name, and compute throughput (GFLOPS). Results are also saved to `comparison_results.json`.
+3. **Comparison**: Prints startup time, total time, estimated cost, GPU name, compute throughput (GFLOPS), and **InternVL3-38B** inference/training metrics. Results are also saved to `comparison_results.json`.
 
-The in-cloud benchmark reports GPU info and a short matrix-multiply throughput; it does **not** download or train the full InternVL 38B (that would use most of your $5 on download time). You can extend `run_benchmark_on_machine.py` to add a few training steps with a small model or LoRA if you want a more realistic training benchmark.
+The in-cloud benchmark loads **OpenGVLab/InternVL3-38B-hf** from Hugging Face on the GPU machine, runs inference (text-only, multiple generations) to report **tokens/sec**, and optionally runs a few training steps to measure step time. It also runs a matrix-multiply compute benchmark.
+
+**To ensure the benchmark uses InternVL3-38B:** By default, before running the benchmark the orchestrator **installs** `transformers`, `accelerate`, and `bitsandbytes` on the cloud machine via SSH (`pip install`). So you don’t need a custom image — just run `python run_comparison.py` and the model will be used. Set `GPU_BENCHMARK_INSTALL_DEPS=0` if your image already has these deps (to save ~2–5 min per provider).
 
 ## Requirements
 
@@ -19,6 +21,7 @@ The in-cloud benchmark reports GPU info and a short matrix-multiply throughput; 
   - RunPod: [SSH keys](https://docs.runpod.io/pods/configuration/use-ssh).
   - Vast: your profile / SSH key settings.
 - **Local**: Python 3.10+, `requests`. No GPU required on your laptop. Dependencies are in the **project root** `requirements.txt`; use the **root** `.venv`.
+- **Cloud machine**: The default image has PyTorch + CUDA. The orchestrator **automatically installs** `transformers`, `accelerate`, and `bitsandbytes` on the machine before running the benchmark, so InternVL3-38B is used without a custom image.
 
 ## Setup
 
@@ -97,7 +100,8 @@ With ~$5 per provider you get roughly 2–3 hours of A100 80GB time; the script 
 | `config.py` | Budget, GPU types, image, timeouts. |
 | `runpod_client.py` | RunPod REST API: create pod, wait, get SSH, terminate. |
 | `vast_client.py` | Vast.ai REST API: search offers, create instance, wait, get SSH, destroy. |
-| `run_benchmark_on_machine.py` | Script that runs **on** the GPU machine: GPU info + compute benchmark. |
+| `run_benchmark_on_machine.py` | Script that runs **on** the GPU machine: GPU info, InternVL3-38B inference/training benchmark, and matrix-multiply compute benchmark. |
+| `requirements-benchmark.txt` | Python deps for the cloud machine (transformers, accelerate, etc.) when running the InternVL benchmark. |
 | `run_remote.py` | Copies the benchmark script via SCP and runs it over SSH. |
 | `run_comparison.py` | Orchestrator: RunPod benchmark → Vast benchmark → print comparison, save JSON. |
 
@@ -112,4 +116,15 @@ Edit `config.py`:
 
 - `RUNPOD_GPU_TYPE_IDS`: e.g. `["NVIDIA A100 80GB PCIe"]`.
 - `VAST_GPU_NAME`: e.g. `"A100"`.
-- `RUNPOD_IMAGE` / `VAST_IMAGE`: Docker image with PyTorch + CUDA (default RunPod PyTorch image).
+- `RUNPOD_IMAGE` / `VAST_IMAGE`: Docker image with PyTorch + CUDA (default RunPod PyTorch image). For InternVL benchmark, use an image that has `pip install -r gpu_cloud_benchmark/requirements-benchmark.txt` (or equivalent).
+
+## Optional: InternVL benchmark env (on the cloud machine)
+
+The script reads these when running on the GPU machine (you can pass them via `run_remote` or the image’s default env):
+
+- `INTERNVL_MODEL_ID`: Hugging Face model id (default `OpenGVLab/InternVL3-38B-hf`).
+- `BENCHMARK_INTERNVL`: Set to `0` to skip loading InternVL and only run the matrix-multiply benchmark.
+- `INTERNVL_NUM_INFERENCE_RUNS`: Number of generate() runs for inference throughput (default `5`).
+- `INTERNVL_MAX_NEW_TOKENS`: Max new tokens per generation (default `50`).
+- `INTERNVL_NUM_TRAINING_STEPS`: Number of training steps to run (default `0`). Use 1–2 with 4-bit to test training; set `INTERNVL_4BIT=1` if needed.
+- `INTERNVL_4BIT`: Set to `1` to load the model in 4-bit (needs `bitsandbytes`); useful for training benchmark or low VRAM.

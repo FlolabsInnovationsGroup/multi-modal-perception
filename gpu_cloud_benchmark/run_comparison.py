@@ -50,6 +50,8 @@ from config import (
     BUDGET_LIMIT_USD,
     BUDGET_PER_PROVIDER_USD,
     CONTAINER_DISK_GB,
+    INSTALL_BENCHMARK_DEPS,
+    INTERNVL_MODEL_ID,
     POD_STARTUP_TIMEOUT_SEC,
     RUNPOD_GPU_TYPE_IDS,
     RUNPOD_IMAGE,
@@ -57,7 +59,7 @@ from config import (
     VAST_IMAGE,
 )
 try:
-    from run_remote import run_script_ssh
+    from run_remote import install_benchmark_deps_ssh, run_script_ssh
     from runpod_client import (
         create_pod,
         get_gpu_prices,
@@ -150,15 +152,28 @@ def run_runpod_benchmark(ssh_key_path: str | None, budget_usd: float) -> dict:
                 "reason": "user declined to run benchmark",
             }
 
+        # Optionally install benchmark deps (transformers, etc.) so InternVL runs
+        if INSTALL_BENCHMARK_DEPS:
+            print("  Installing benchmark deps (transformers, accelerate, bitsandbytes)...", flush=True)
+            ok, err = install_benchmark_deps_ssh(host, port, user="root", ssh_key_path=ssh_key_path, timeout=300)
+            if not ok and err:
+                print("  (install warning:", err[:200] + ")", flush=True)
+            else:
+                print("  Deps ready.", flush=True)
         # Cap benchmark runtime so we stay under $5 limit (RunPod A100 ~$1.39/hr)
         cost_per_hr = 1.39
         max_bench_sec = min(900, int((BUDGET_LIMIT_USD / cost_per_hr) * 3600))
+        bench_env = {
+            "BENCHMARK_PROVIDER": "runpod",
+            "BENCHMARK_INTERNVL": "1",
+            "INTERNVL_MODEL_ID": INTERNVL_MODEL_ID,
+        }
         ret, stdout, stderr = run_script_ssh(
             host=host,
             port=port,
             user="root",
             ssh_key_path=ssh_key_path,
-            env={"BENCHMARK_PROVIDER": "runpod"},
+            env=bench_env,
             timeout=max_bench_sec,
         )
         if stderr:
@@ -222,16 +237,29 @@ def run_vast_benchmark(ssh_key_path: str | None, budget_usd: float) -> dict:
                 "reason": "user declined to run benchmark",
             }
 
+        # Optionally install benchmark deps (transformers, etc.) so InternVL runs
+        if INSTALL_BENCHMARK_DEPS:
+            print("  Installing benchmark deps (transformers, accelerate, bitsandbytes)...", flush=True)
+            ok, err = install_benchmark_deps_ssh(host, port, user="root", ssh_key_path=ssh_key_path, timeout=300)
+            if not ok and err:
+                print("  (install warning:", err[:200] + ")", flush=True)
+            else:
+                print("  Deps ready.", flush=True)
         # Cap benchmark runtime so we stay under $5 limit
         dph = inst.get("dph_total") or inst.get("price") or 2.0
         cost_per_hr = float(dph)
         max_bench_sec = min(900, int((BUDGET_LIMIT_USD / cost_per_hr) * 3600))
+        bench_env = {
+            "BENCHMARK_PROVIDER": "vast",
+            "BENCHMARK_INTERNVL": "1",
+            "INTERNVL_MODEL_ID": INTERNVL_MODEL_ID,
+        }
         ret, stdout, stderr = run_script_ssh(
             host=host,
             port=port,
             user="root",
             ssh_key_path=ssh_key_path,
-            env={"BENCHMARK_PROVIDER": "vast"},
+            env=bench_env,
             timeout=max_bench_sec,
         )
         if stderr:
@@ -432,6 +460,10 @@ def main():
         print(f"    Est. cost:  ${data.get('estimated_cost_usd')}", flush=True)
         print(f"    GPU:        {s.get('gpu_name')} ({s.get('gpu_memory_gb')} GB)", flush=True)
         print(f"    Throughput: {s.get('throughput_gflops')} GFLOPS", flush=True)
+        if s.get('internvl_tokens_per_sec') is not None:
+            print(f"    InternVL:   {s.get('internvl_tokens_per_sec')} tokens/s ({s.get('internvl_model', 'InternVL3-38B')})", flush=True)
+            if s.get('internvl_training_step_sec') is not None:
+                print(f"    InternVL training step: {s.get('internvl_training_step_sec')} s", flush=True)
     print("=" * 60, flush=True)
 
     # Write JSON for later use
