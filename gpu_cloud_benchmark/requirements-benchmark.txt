@@ -1,0 +1,9 @@
+# Dependencies for the benchmark script when it runs ON the GPU cloud machine.
+# Install on the RunPod/Vast instance (or use an image that already has these).
+# The orchestrator (run_comparison.py) runs on your laptop and only needs repo root requirements.txt.
+
+torch>=2.0.0
+transformers>=4.37.2
+accelerate>=0.25.0
+# Optional: for 4-bit quantization (training benchmark or low VRAM)
+bitsandbytes>=0.41.0

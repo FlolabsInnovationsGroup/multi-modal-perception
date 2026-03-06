@@ -27,3 +27,10 @@ BENCHMARK_TIMEOUT_SEC = 3600   # 1 hour max for benchmark script
 # Paths (benchmark script runs inside cloud; we copy it or run inline)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BENCHMARK_SCRIPT_NAME = "run_benchmark_on_machine.py"
+
+# Install transformers/accelerate on the cloud machine before running the benchmark?
+# Set to False if your image already has them (saves ~2–5 min per provider).
+INSTALL_BENCHMARK_DEPS = os.getenv("GPU_BENCHMARK_INSTALL_DEPS", "1").strip().lower() in ("1", "true", "yes")
+
+# Model to use for the GPU benchmark (Hugging Face model id).
+INTERNVL_MODEL_ID = os.getenv("INTERNVL_MODEL_ID", "OpenGVLab/InternVL3-38B-hf")
