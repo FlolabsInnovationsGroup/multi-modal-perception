@@ -1,1 +1,56 @@
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env vars (secrets)
 .env
+.env.local
+*.local
+
+# GPU cloud benchmark output
+gpu_cloud_benchmark/check_setup_result.txt
+gpu_cloud_benchmark/comparison_results.json
+gpu_cloud_benchmark/run_comparison.log
+gpu_cloud_benchmark/run_comparison_started.txt
+
+# Logs and local data
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/

@@ -1,3 +1,9 @@
+"""
+Multimodal Perception Microservice — main orchestration and API.
+
+Trigger: FastAPI POST /process with JSON body.
+Input/Output: Text (Pydantic models) for now; extensible for future multimodal (vLLM, etc.).
+"""
 from fastapi import FastAPI
 import logging
 

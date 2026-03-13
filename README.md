@@ -1,7 +1,8 @@
-# Multimodal Perception Microservice
-This repository contains the foundational Python microservice for a multimodal perception system. It is built using FastAPI, providing a fast, asynchronous, and robust REST API.
+# Multi-Modal Perception
 
-Currently, it acts as a lightweight event-driven service that receives text input and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
+Python microservice that will serve as the foundation for a **multimodal perception system** (vision, language, dialogue). The service is built as a single, loosely coupled application suitable for later deployment as part of a larger suite of services.
+
+Currently, it also acts as a lightweight event-driven service that receives text input and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
 
 ### Project Architecture
 
@@ -21,7 +22,7 @@ The system is broken down into specific functional areas:
 
 * **The Orchestrator (``main.py``)**: The entry point of the application. It initializes the FastAPI framework and "mounts" the individual routers from the ``api/`` folder. It does not handle business logic directly.
 
-* **Data Models (``schemas.py``)**: Uses Pydantic to strictly define the expected input and output data (e.g., ``PerceptionInput``, ``PerceptionOutput``). If a system sends malformed data, the API automatically rejects it.
+* **Data Models (``schemas.py``)**: Uses Pydantic to strictly define the expected input and output data (e.g. ``PerceptionInput``, ``PerceptionOutput``). If a system sends malformed data, the API automatically rejects it.
 
 * **The Routers (``api/`` folder)**:
 
@@ -33,7 +34,7 @@ The system is broken down into specific functional areas:
 
 ### OpenAI Integration
 
-This microservice now integrates directly with the OpenAI Chat Completions API using an async, cached client optimized for low latency.
+This microservice integrates directly with the OpenAI Chat Completions API using an async, cached client optimized for low latency.
 
 - **Async client**: Uses `AsyncOpenAI` for non-blocking calls under FastAPI.
 - **Ultra-fast cache**: In-memory cache keyed by normalized user input to avoid redundant calls.
@@ -61,52 +62,140 @@ export OPENAI_MODEL="gpt-4o-mini"
 
 ---
 
-### How to Run the System Locally
-1. **Prerequisites**
+## How It's Built
 
-Ensure you have Python 3.8+ installed. You will also need to install the dependencies. If you haven't already, install them via your terminal:
+### Architecture
 
-`pip install fastapi uvicorn pydantic`
+- **Framework:** FastAPI for HTTP API, request/response validation, and async handling.
+- **Validation:** Pydantic models for typed input and output so the API contract stays clear as the system grows (e.g. adding images or multimodal payloads).
+- **Server:** Uvicorn runs the app; it can be started from the command line or by another process (e.g. Docker/Kubernetes).
 
-2. **Starting the Server**
+### Main components
 
-Since the code includes a Uvicorn execution block at the bottom, you can start the server simply by running the Python file directly:
+| File / concept        | Role |
+|-----------------------|------|
+| `main.py`             | Application entry: FastAPI app, router registration, logging, and `uvicorn.run` when executed directly. |
+| `api/`                | API module: `health.py` (GET /health), `process.py` (POST /process). Keeps routes modular and testable. |
+| `schemas.py`          | Pydantic models: `PerceptionInput` (request body), `PerceptionOutput` (response body). |
+| `requirements.txt`    | Pinned dependencies (FastAPI, Uvicorn, Pydantic) for reproducible installs. |
+| `POST /process`       | Main trigger: accepts JSON with `text_input`, returns JSON with `result` (OpenAI response or stub). |
+| `GET /health`         | Health check for load balancers and orchestrators (e.g. Docker/Kubernetes). |
 
-`python main.py`
+### API behavior (current)
 
-(Alternatively, you can start it via the Uvicorn CLI: ``uvicorn main:app --host 0.0.0.0 --port 8000 --reload``)
+1. **Health:** `GET /health` → `{"status": "healthy"}`.
+2. **Process:** `POST /process` with body `{"text_input": "your text"}` → `{"result": "<OpenAI or stub response>"}`.  
+   Any unhandled exception in the handler returns HTTP 500 with a generic error message; logs contain the real error for debugging.
 
-You should see logs indicating the server has started on http://0.0.0.0:8000.
+### Logging
 
-----
+- Standard library `logging` is configured at INFO in `main.py`.
+- Incoming input and processing completion are logged in `api/process.py`; errors are logged before raising the 500 response.
 
-### How to Test the API
-Once the server is running, you can interact with it using several methods.
+### Dataset (separate)
 
-**Method A: Interactive API Docs (Recommended)**
+- The **Caipo Multimodal Dataset** lives under `caipo_multimodal_dataset/` and is used for training/evaluation of future models (e.g. vLLM).  
+- See [`caipo_multimodal_dataset/README.md`](caipo_multimodal_dataset/README.md) for structure, tasks, and usage.  
+- The microservice does not depend on the dataset at runtime; the dataset is for offline training and evaluation.
 
-FastAPI automatically generates a beautiful, interactive user interface for testing.
+---
 
-1. Open your web browser.
+## How to Run
 
-2. Navigate to: http://localhost:8000/docs
+### 1. Install dependencies
 
-3. Expand the POST /process route, click "Try it out", modify the text, and hit Execute.
+The project uses **one `requirements.txt`** and **one `.venv`** at the **repository root** (where `main.py` is).
 
-**Method B: Terminal (cURL)**
+```bash
+# From repo root
+pip install -r requirements.txt
+```
 
-You can trigger the system directly from a new terminal window to simulate how your Django backend will communicate with it.
+Using a virtual environment is recommended:
 
-**Test the Health Check:**
+```bash
+python -m venv .venv
+source .venv/bin/activate   # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-``curl -X GET http://localhost:8000/health``
+### 2. Start the service
 
-Expected Output: ``{"status":"healthy"}``
+**Option A — Run `main.py` directly (development, with auto-reload):**
 
-**Test the Main Trigger:**
+```bash
+python main.py
+```
 
-    curl -X POST http://localhost:8000/process \
-         -H "Content-Type: application/json" \
-         -d '{"text_input": "What is OpenAI?"}'
+This runs Uvicorn with `reload=True` on `http://0.0.0.0:8000`.
 
-Expected Output: OpenAI chat response. 
+**Option B — Run Uvicorn from the command line:**
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 3. Call the API
+
+- **Health check:**
+  ```bash
+  curl http://localhost:8000/health
+  ```
+  Expected: `{"status":"healthy"}`
+
+- **Process (main trigger):**
+  ```bash
+  curl -X POST http://localhost:8000/process \
+    -H "Content-Type: application/json" \
+    -d '{"text_input": "from curl"}'
+  ```
+  Expected: `{"result":"Hello world from curl"}` (stub) or with OpenAI: `{"result":"<model response>"}`.
+
+  Example with a question:
+  ```bash
+  curl -X POST http://localhost:8000/process \
+       -H "Content-Type: application/json" \
+       -d '{"text_input": "What is OpenAI?"}'
+  ```
+  Expected output: OpenAI chat response.
+
+- **Interactive API docs:**  
+  Open in a browser: [http://localhost:8000/docs](http://localhost:8000/docs) (Swagger UI).
+
+---
+
+## Repository layout (relevant to the microservice)
+
+```
+multi-modal-perception/
+├── README.md                 # This file — project overview and run instructions
+├── main.py                   # FastAPI app entry, router registration
+├── schemas.py                # Pydantic models (PerceptionInput, PerceptionOutput)
+├── requirements.txt          # fastapi, uvicorn, pydantic (pinned versions)
+├── api/                      # API routes (health, process)
+│   ├── __init__.py
+│   ├── health.py             # GET /health
+│   └── process.py            # POST /process
+├── services/                 # Service layer (e.g., OpenAI)
+│   └── openai_service.py
+└── caipo_multimodal_dataset/ # Training/eval dataset (see its README)
+```
+
+---
+
+## Future work (placeholders in code)
+
+- **vLLM / model integration:** The main processing logic can be extended in `api/process.py` (e.g. swap or complement the OpenAI client with vLLM).
+- **Multimodal input/output:** When adding images or other modalities, extend the Pydantic models in `schemas.py` (e.g. optional `image_url` or `image_b64`) and the `/process` handler in `api/process.py` accordingly; the same endpoint can be extended or new endpoints can be added.
+
+---
+
+## Dependencies (from requirements.txt)
+
+- **fastapi** — Web framework and API definitions.
+- **uvicorn** — ASGI server that runs the FastAPI app.
+- **pydantic** — Data validation and serialization for request/response bodies.
+- **openai** — OpenAI API client for chat completions.
+- **python-dotenv** — Load environment variables from `.env`.
+
+All versions are pinned in `requirements.txt` for reproducible builds.
