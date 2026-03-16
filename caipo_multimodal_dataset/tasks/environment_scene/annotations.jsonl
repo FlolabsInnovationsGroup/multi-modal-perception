@@ -1,2 +1,20 @@
-{"image_path": "images/kitchen_001.jpg", "instruction": "Describe environment and hazards", "response": "Bright kitchen, slippery floor hazard"}
-{"image_path": "images/office_002.jpg", "instruction": "Describe environment and hazards", "response": "Office with desks, cables may be trip hazard"}
+{"image_path": "images/000000014226.jpg", "instruction": "Describe the scene", "response": "A man sitting on a train at a table using a laptop."}
+{"image_path": "images/000000084492.jpg", "instruction": "Describe the scene", "response": "A skateboarder grinds down a railing in front of buildings."}
+{"image_path": "images/000000124636.jpg", "instruction": "Describe the scene", "response": "A baby cow standing in a pen next to another cow."}
+{"image_path": "images/000000126137.jpg", "instruction": "Describe the scene", "response": "A young man standing on top of a tennis court holding a racquet."}
+{"image_path": "images/000000181421.jpg", "instruction": "Describe the scene", "response": "Three people in a boat with an umbrella in the rain "}
+{"image_path": "images/000000199442.jpg", "instruction": "Describe the scene", "response": "A man riding a wave on top of a surfboard."}
+{"image_path": "images/000000291619.jpg", "instruction": "Describe the scene", "response": "There are two men playing frisbee on a field \n"}
+{"image_path": "images/000000302990.jpg", "instruction": "Describe the scene", "response": "A person with a surfboard in a room."}
+{"image_path": "images/000000329219.jpg", "instruction": "Describe the scene", "response": "A man standing next to a dog on the ground."}
+{"image_path": "images/000000376478.jpg", "instruction": "Describe the scene", "response": "A large flower in a vase is sitting on some wood. "}
+{"image_path": "images/000000388258.jpg", "instruction": "Describe the scene", "response": "There is a bike that is parked by a bench, and an airplane that is high in the sky"}
+{"image_path": "images/000000446005.jpg", "instruction": "Describe the scene", "response": "A kitchen has wooden cabinets and black countertops."}
+{"image_path": "images/000000470121.jpg", "instruction": "Describe the scene", "response": "Two plates that have different types of food on it near a bottle."}
+{"image_path": "images/000000477689.jpg", "instruction": "Describe the scene", "response": "A photo of a women smiling posing for a picture."}
+{"image_path": "images/000000500826.jpg", "instruction": "Describe the scene", "response": "A pole with three road signs stands in front of a building."}
+{"image_path": "images/000000512648.jpg", "instruction": "Describe the scene", "response": "A brown cow under a tree in a grassy area."}
+{"image_path": "images/000000523957.jpg", "instruction": "Describe the scene", "response": "A guy is skateboarding through cones on a street."}
+{"image_path": "images/000000563653.jpg", "instruction": "Describe the scene", "response": "A street going trough the center of a small town."}
+{"image_path": "images/000000564091.jpg", "instruction": "Describe the scene", "response": "A woman is sitting at her jewelry display and talking on the phone."}
+{"image_path": "images/000000570539.jpg", "instruction": "Describe the scene", "response": "An older man is sitting on the bus above a movie advertisement."}
