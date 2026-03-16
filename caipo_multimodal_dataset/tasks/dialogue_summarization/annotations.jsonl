@@ -1,2 +1,0 @@
-{"context_path": "dialogues/summary_chat_001.json", "instruction": "Summarize this conversation in 1-2 sentences.", "response": "The user reported a missing order. The agent looked up ORD-8842 and confirmed it shipped yesterday with delivery by Friday."}
-{"context_path": "dialogues/summary_chat_002.json", "instruction": "Summarize this conversation in 1-2 sentences.", "response": "The user asked to reschedule an appointment. Reception offered next Tuesday at 2 PM and confirmed the booking."}
