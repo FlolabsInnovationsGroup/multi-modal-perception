@@ -2,7 +2,7 @@
 
 Python microservice that will serve as the foundation for a **multimodal perception system** (vision, language, dialogue). The service is built as a single, loosely coupled application suitable for later deployment as part of a larger suite of services.
 
-Currently, it also acts as a lightweight event-driven service that receives text input and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
+Currently, it also acts as a lightweight event-driven service that receives text plus an audio file and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
 
 ### Project Architecture
 
@@ -22,13 +22,13 @@ The system is broken down into specific functional areas:
 
 * **The Orchestrator (``main.py``)**: The entry point of the application. It initializes the FastAPI framework and "mounts" the individual routers from the ``api/`` folder. It does not handle business logic directly.
 
-* **Data Models (``schemas.py``)**: Uses Pydantic to strictly define the expected input and output data (e.g. ``PerceptionInput``, ``PerceptionOutput``). If a system sends malformed data, the API automatically rejects it.
+* **Data Models (``schemas.py``)**: Uses Pydantic to define typed response data (e.g. ``PerceptionOutput``) and maintain reusable schema definitions as the API evolves.
 
 * **The Routers (``api/`` folder)**:
 
     * ``health.py``: Handles the ``GET /health`` route used by deployment managers (like Docker or Kubernetes) to check if the server is alive.
 
-    * ``process.py``: Handles the ``POST /process`` route. This is the main trigger that accepts the payload, logs the input, and calls the ultra-lightweight OpenAI client to transform the text into a concise perception response.
+    * ``process.py``: Handles the ``POST /process`` route. This is the main trigger that accepts a multipart payload (text + audio file), transcribes the audio with OpenAI, and returns a concise perception response.
 
 ---
 
@@ -49,6 +49,7 @@ Before starting the server, set at least:
 Optional tuning (all have sensible defaults):
 
 - **`OPENAI_MODEL`**: Defaults to `gpt-4o-mini`.
+- **`OPENAI_TRANSCRIBE_MODEL`**: Defaults to `gpt-4o-mini-transcribe`.
 - **`OPENAI_MAX_TOKENS`**: Defaults to `256`.
 - **`OPENAI_TEMPERATURE`**: Defaults to `0.4`.
 - **`OPENAI_SYSTEM_PROMPT`**: Custom system prompt for the multimodal perception assistant.
@@ -76,21 +77,20 @@ export OPENAI_MODEL="gpt-4o-mini"
 |-----------------------|------|
 | `main.py`             | Application entry: FastAPI app, router registration, logging, and `uvicorn.run` when executed directly. |
 | `api/`                | API module: `health.py` (GET /health), `process.py` (POST /process). Keeps routes modular and testable. |
-| `schemas.py`          | Pydantic models: `PerceptionInput` (request body), `PerceptionOutput` (response body). |
+| `schemas.py`          | Pydantic models for typed API structures (currently used for response validation via `PerceptionOutput`). |
 | `requirements.txt`    | Pinned dependencies (FastAPI, Uvicorn, Pydantic) for reproducible installs. |
-| `POST /process`       | Main trigger: accepts JSON with `text_input`, returns JSON with `result` (OpenAI response or stub). |
+| `POST /process`       | Main trigger: accepts `multipart/form-data` with `text_input` and `audio_file`, returns JSON with `result` (OpenAI response or stub). |
 | `GET /health`         | Health check for load balancers and orchestrators (e.g. Docker/Kubernetes). |
 
 ### API behavior (current)
 
 1. **Health:** `GET /health` → `{"status": "healthy"}`.
-2. **Process:** `POST /process` with body `{"text_input": "your text"}` → `{"result": "<OpenAI or stub response>"}`.  
+2. **Process:** `POST /process` with `multipart/form-data` fields `text_input` and `audio_file` → audio is transcribed first, then `{"result": "<OpenAI response>"}`.  
    Any unhandled exception in the handler returns HTTP 500 with a generic error message; logs contain the real error for debugging.
 
 ### Logging
 
 - Standard library `logging` is configured at INFO in `main.py`.
-- Incoming input and processing completion are logged in `api/process.py`; errors are logged before raising the 500 response.
 
 ### Dataset (separate)
 
@@ -146,16 +146,16 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **Process (main trigger):**
   ```bash
   curl -X POST http://localhost:8000/process \
-    -H "Content-Type: application/json" \
-    -d '{"text_input": "from curl"}'
+    -F "text_input=from curl" \
+    -F "audio_file=@/absolute/path/to/sample.wav"
   ```
   Expected: `{"result":"Hello world from curl"}` (stub) or with OpenAI: `{"result":"<model response>"}`.
 
   Example with a question:
   ```bash
   curl -X POST http://localhost:8000/process \
-       -H "Content-Type: application/json" \
-       -d '{"text_input": "What is OpenAI?"}'
+       -F "text_input=What is OpenAI?" \
+       -F "audio_file=@/absolute/path/to/sample.wav"
   ```
   Expected output: OpenAI chat response.
 

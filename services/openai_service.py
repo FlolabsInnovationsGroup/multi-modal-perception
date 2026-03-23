@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import os
 import time
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
 MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "256"))
 TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.4"))
 
@@ -37,7 +39,6 @@ class UltraFastOpenAIService:
         self._lock = asyncio.Lock()
 
     async def generate_response(self, user_message: str) -> str:
-       
         normalized = user_message.strip()
         if not normalized:
             return ""
@@ -73,6 +74,44 @@ class UltraFastOpenAIService:
         except Exception as exc:  # noqa: BLE001
             elapsed_ms = (time.monotonic() - start) * 1000
             return f"Perception system temporarily unavailable. Echoing input: {normalized}"
+
+    async def transcribe_audio(
+        self,
+        audio_bytes: bytes,
+        filename: str = "audio.wav",
+    ) -> str:
+        if not audio_bytes:
+            return ""
+
+        audio_stream = io.BytesIO(audio_bytes)
+        audio_stream.name = filename
+
+        transcript = await self._client.audio.transcriptions.create(
+            model=TRANSCRIBE_MODEL,
+            file=audio_stream,
+        )
+        return (transcript.text or "").strip()
+
+    async def generate_multimodal_response(
+        self,
+        text_input: str,
+        audio_bytes: bytes,
+        audio_filename: str = "audio.wav",
+    ) -> str:
+        normalized_text = (text_input or "").strip()
+        transcript = await self.transcribe_audio(audio_bytes, audio_filename)
+
+        if normalized_text and transcript:
+            user_message = (
+                f"{normalized_text}\n\n"
+                f"Audio transcript:\n{transcript}"
+            )
+        elif transcript:
+            user_message = transcript
+        else:
+            user_message = normalized_text
+
+        return await self.generate_response(user_message)
 
 
 _ultra_fast_service: Optional[UltraFastOpenAIService] = None
