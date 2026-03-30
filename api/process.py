@@ -1,5 +1,6 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 import logging
+from typing import Optional
 from schemas import PerceptionOutput
 from services.openai_service import get_ultra_fast_service
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 @router.post("/process", response_model=PerceptionOutput)
 async def process_data(
-    text_input: str = Form(...),
+    text_input: Optional[str] = Form(None),
     audio_file: UploadFile = File(...),
 ):
     """
@@ -18,6 +19,12 @@ async def process_data(
     audio_bytes = await audio_file.read()
 
     try:
+        normalized_text = (text_input or "").strip()
+        if not normalized_text and audio_bytes:
+            text_input = "reply to the audio"
+        else:
+            text_input = normalized_text
+
         ai_service = get_ultra_fast_service()
         processed_string = await ai_service.generate_multimodal_response(
             text_input=text_input,
