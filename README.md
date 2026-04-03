@@ -10,6 +10,7 @@ Currently, it also acts as a lightweight event-driven service that receives text
         ├── api/
         │   ├── __init__.py      # Marks the directory as a Python package
         │   ├── health.py        # Contains system health check routes
+        │   ├── openAI.py        # Contains POST /openAI (OpenAI-backed responses)
         │   └── process.py       # Contains the main perception trigger routes
         ├── main.py              # The central application orchestrator
         ├── schemas.py           # The single source of truth for data structures
@@ -29,6 +30,8 @@ The system is broken down into specific functional areas:
     * ``health.py``: Handles the ``GET /health`` route used by deployment managers (like Docker or Kubernetes) to check if the server is alive.
 
     * ``process.py``: Handles the ``POST /process`` route. This is the main trigger that accepts a multipart payload (text + audio file), transcribes the audio with OpenAI, and returns a concise perception response.
+
+    * ``openAI.py``: Handles the ``POST /openAI`` route. Same multipart contract as ``/process`` (optional ``text_input`` and ``audio_file``; at least one required): uses OpenAI to generate a text response and returns ``PerceptionOutput``.
 
 ---
 
@@ -76,10 +79,11 @@ export OPENAI_MODEL="gpt-4o-mini"
 | File / concept        | Role |
 |-----------------------|------|
 | `main.py`             | Application entry: FastAPI app, router registration, logging, and `uvicorn.run` when executed directly. |
-| `api/`                | API module: `health.py` (GET /health), `process.py` (POST /process). Keeps routes modular and testable. |
+| `api/`                | API module: `health.py` (GET /health), `process.py` (POST /process), `openAI.py` (POST /openAI). Keeps routes modular and testable. |
 | `schemas.py`          | Pydantic models for typed API structures (currently used for response validation via `PerceptionOutput`). |
 | `requirements.txt`    | Pinned dependencies (FastAPI, Uvicorn, Pydantic) for reproducible installs. |
 | `POST /process`       | Main trigger: accepts `multipart/form-data` with `text_input` and `audio_file`, returns JSON with `result` (OpenAI response or stub). |
+| `POST /openAI`        | OpenAI route: same multipart fields as `/process`; returns `{"result": "<OpenAI response>"}`. |
 | `GET /health`         | Health check for load balancers and orchestrators (e.g. Docker/Kubernetes). |
 
 ### API behavior (current)
@@ -87,6 +91,7 @@ export OPENAI_MODEL="gpt-4o-mini"
 1. **Health:** `GET /health` → `{"status": "healthy"}`.
 2. **Process:** `POST /process` with `multipart/form-data` fields `text_input` and `audio_file` → audio is transcribed first, then `{"result": "<OpenAI response>"}`.  
    Any unhandled exception in the handler returns HTTP 500 with a generic error message; logs contain the real error for debugging.
+3. **OpenAI:** `POST /openAI` with the same `multipart/form-data` shape (`text_input` and/or `audio_file`; at least one required) → `{"result": "<OpenAI response>"}`. Missing both fields returns HTTP 422.
 
 ### Logging
 
@@ -159,6 +164,20 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   ```
   Expected output: OpenAI chat response.
 
+- **OpenAI (`POST /openAI`):**  
+  Text only:
+  ```bash
+  curl -X POST http://localhost:8000/openAI \
+    -F "text_input=what is the best destination to travel to in the winter?"
+  ```
+  With audio (same pattern as `/process`):
+  ```bash
+  curl -X POST http://localhost:8000/openAI \
+    -F "text_input=from curl" \
+    -F "audio_file=@/absolute/path/to/sample.wav"
+  ```
+  Expected: `{"result":"<model response>"}` (same `PerceptionOutput` shape as `/process`).
+
 - **Interactive API docs:**  
   Open in a browser: [http://localhost:8000/docs](http://localhost:8000/docs) (Swagger UI).
 
@@ -172,9 +191,10 @@ multi-modal-perception/
 ├── main.py                   # FastAPI app entry, router registration
 ├── schemas.py                # Pydantic models (PerceptionInput, PerceptionOutput)
 ├── requirements.txt          # fastapi, uvicorn, pydantic (pinned versions)
-├── api/                      # API routes (health, process)
+├── api/                      # API routes (health, process, openAI)
 │   ├── __init__.py
 │   ├── health.py             # GET /health
+│   ├── openAI.py             # POST /openAI
 │   └── process.py            # POST /process
 ├── services/                 # Service layer (e.g., OpenAI)
 │   └── openai_service.py
