@@ -8,13 +8,13 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("/process", response_model=PerceptionOutput)
-async def process_data(
+@router.post("/openAI", response_model=PerceptionOutput)
+async def openAI_data(
     text_input: Optional[str] = Form(None),
     audio_file: Optional[UploadFile] = File(None),
 ):
     """
-    Main trigger for the perception system.
+    Use OpenAI to generate a response.
     """
     if audio_file is not None:
         audio_bytes = await audio_file.read()
