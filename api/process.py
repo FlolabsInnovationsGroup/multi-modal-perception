@@ -11,15 +11,26 @@ logger = logging.getLogger(__name__)
 @router.post("/process", response_model=PerceptionOutput)
 async def process_data(
     text_input: Optional[str] = Form(None),
-    audio_file: UploadFile = File(...),
+    audio_file: Optional[UploadFile] = File(None),
 ):
     """
     Main trigger for the perception system.
     """
-    audio_bytes = await audio_file.read()
+    if audio_file is not None:
+        audio_bytes = await audio_file.read()
+        audio_filename = audio_file.filename or "audio.wav"
+    else:
+        audio_bytes = b""
+        audio_filename = "audio.wav"
+
+    normalized_text = (text_input or "").strip()
+    if not normalized_text and not audio_bytes:
+        raise HTTPException(
+            status_code=422,
+            detail="Provide at least one of text_input or audio_file.",
+        )
 
     try:
-        normalized_text = (text_input or "").strip()
         if not normalized_text and audio_bytes:
             text_input = "reply to the audio"
         else:
@@ -29,7 +40,7 @@ async def process_data(
         processed_string = await ai_service.generate_multimodal_response(
             text_input=text_input,
             audio_bytes=audio_bytes,
-            audio_filename=audio_file.filename or "audio.wav",
+            audio_filename=audio_filename,
         )
 
         return PerceptionOutput(result=processed_string)
