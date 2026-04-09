@@ -10,6 +10,8 @@ import logging
 from dotenv import load_dotenv
 
 from api import health, openAI, process
+from api.process_qwen import router as qwen_router
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,7 +26,11 @@ app = FastAPI(
 app.include_router(health.router, tags=["System"])
 app.include_router(process.router, tags=["Perception"])
 app.include_router(openAI.router, tags=["OpenAI"])
+app.include_router(qwen_router, prefix="/qwen", tags=["qwen"])
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+
