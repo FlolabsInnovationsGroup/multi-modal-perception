@@ -1,5 +1,6 @@
 import os
-from openai import OpenAI
+import logging
+from openai import AsyncOpenAI
 from fastapi import HTTPException
 
 
@@ -26,7 +27,7 @@ class UltraFastQwenService:
                 "DASHSCOPE_API_KEY environment variable is required for Qwen integration."
             )
 
-        self._client = OpenAI(
+        self._client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         )
@@ -63,9 +64,7 @@ class UltraFastQwenService:
             return (response.choices[0].message.content or "").strip()
 
         except Exception as exc:
-            return f"Qwen temporarily unavailable. Echoing input: {text}"
-
-        except Exception as exc:  # optional: more fine‑grained error handling
+            logging.exception("Qwen API call failed.")
             raise HTTPException(
                 status_code=500,
                 detail=f"Qwen API error: {str(exc)}",
