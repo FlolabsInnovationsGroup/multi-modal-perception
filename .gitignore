@@ -17,6 +17,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!prompt-enhancement/src/lib/
+!prompt-enhancement/src/lib/**
 lib64/
 parts/
 sdist/
@@ -24,11 +26,11 @@ var/
 wheels/
 *.egg-info/
 .installed.cfg
+temp_auto_push.bat
 *.egg
 
 # IDE / editor
 .idea/
-.vscode/
 *.swp
 *.swo
 *~
@@ -54,3 +56,5 @@ gpu_cloud_benchmark/run_comparison_started.txt
 .coverage
 htmlcov/
 .mypy_cache/
+.gitignore
+branch_structure.json
