@@ -2,7 +2,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 import logging
 from typing import Optional
 from schemas import PerceptionOutput
-from services.openai_service import get_ultra_fast_service
+from services.openai_service import get_ultra_fast_service, DEFAULT_MODEL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -36,6 +36,14 @@ async def openAI_data(
         else:
             text_input = normalized_text
 
+        # Determine file type
+        if audio_bytes and normalized_text:
+            file_type = "audio"
+        elif audio_bytes:
+            file_type = "audio"
+        else:
+            file_type = "text"
+
         ai_service = get_ultra_fast_service()
         processed_string = await ai_service.generate_multimodal_response(
             text_input=text_input,
@@ -43,7 +51,11 @@ async def openAI_data(
             audio_filename=audio_filename,
         )
 
-        return PerceptionOutput(result=processed_string)
+        return PerceptionOutput(
+            result=processed_string,
+            model=DEFAULT_MODEL,
+            file_type=file_type,
+        )
 
     except RuntimeError as config_error:
         raise HTTPException(
