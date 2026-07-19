@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Literal
 
 
 class PerceptionInput(BaseModel):
@@ -12,3 +13,5 @@ class PerceptionOutput(BaseModel):
     """Expected response body from /process."""
 
     result: str
+    model: str
+    file_type: Literal["text", "audio", "image", "video"]
