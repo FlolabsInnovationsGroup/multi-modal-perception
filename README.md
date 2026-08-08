@@ -1,8 +1,30 @@
 # Multi-Modal Perception
 
-Python microservice that will serve as the foundation for a **multimodal perception system** (vision, language, dialogue). The service is built as a single, loosely coupled application suitable for later deployment as part of a larger suite of services.
+Python microservice that serves as the prototype foundation for a **multimodal perception system** (vision, language, dialogue).
 
-Currently, it also acts as a lightweight event-driven service that receives text plus an audio file and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
+The current implementation accepts text and/or audio and can return an OpenAI-generated response. It is a legacy single-tenant prototype, not a production-ready Bring Your Own Key (BYOK) service.
+
+## BYOK security modernization
+
+This branch contains the approved product requirements and the governed delivery package for adding workspace-scoped customer and platform AI-provider credentials. Start with:
+
+1. [`AGENTS.md`](AGENTS.md) — repository workflow, security rules, and approval gates.
+2. [`docs/README.md`](docs/README.md) — document index and source-of-truth hierarchy.
+3. [`docs/byok-credential-broker-prd.md`](docs/byok-credential-broker-prd.md) — authoritative product and security requirements.
+4. [`docs/PLAN.md`](docs/PLAN.md) — active phase, task IDs, entry/exit criteria, and status.
+5. [`docs/ai/implementation-start-prompt.md`](docs/ai/implementation-start-prompt.md) — reusable Codex/Claude kickoff prompt.
+
+The target architecture has **not** been implemented yet. Phase 0 security and architecture documents are ready for human review, and feature coding must not begin until the Phase 0 exit gate is explicitly approved.
+
+### Known legacy limitations
+
+- `/process` and `/openAI` are unauthenticated and have no organization/workspace authorization.
+- One process-global OpenAI credential/client is used for all requests.
+- A cross-request in-memory response cache has no tenant boundary.
+- Provider failures can be converted into a silent input-echo response.
+- There is no PostgreSQL tenancy model, audit persistence, migration framework, Terraform, automated test suite, or deployment foundation in this repository.
+
+Do not extend these patterns. The approved replacement uses Cognito, PostgreSQL with row-level security, a private ECS Credential Broker, AWS Secrets Manager/KMS, explicit provider/model/credential-source policy, safe auditing, and no silent fallback.
 
 ### Project Architecture
 
@@ -37,17 +59,18 @@ The system is broken down into specific functional areas:
 
 ### OpenAI Integration
 
-This microservice integrates directly with the OpenAI Chat Completions API using an async, cached client optimized for low latency.
+The legacy prototype integrates directly with the OpenAI Chat Completions API using an async process-global client. This section documents current behavior for local diagnosis and migration; it is not the approved BYOK architecture.
 
 - **Async client**: Uses `AsyncOpenAI` for non-blocking calls under FastAPI.
-- **Ultra-fast cache**: In-memory cache keyed by normalized user input to avoid redundant calls.
-- **Safe defaults**: Conservative `max_tokens`, temperature, and model selection to keep responses fast and predictable.
+- **Legacy response cache**: An in-memory cache is keyed by normalized input. It is cross-tenant unsafe and must be removed from provider execution during Phase 4.
+- **Legacy error fallback**: Broad provider failures can echo user input. It must be replaced with normalized safe errors and must never trigger credential/provider fallback.
+- **Configuration defaults**: Token, temperature, and model defaults affect behavior and cost but are not security or tenant-isolation controls.
 
 #### Required Environment Variables
 
-Before starting the server, set at least:
+For local legacy-prototype use only, the process expects:
 
-- **`OPENAI_API_KEY`**: Your OpenAI API key.
+- **`OPENAI_API_KEY`**: A local development key. Never commit it, paste it into AI/chat, put it in command history, or use a production/customer key. The target BYOK flow will not use this global application pattern.
 
 Optional tuning (all have sensible defaults):
 
@@ -60,9 +83,11 @@ Optional tuning (all have sensible defaults):
 Example (Unix/macOS):
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="test-provider-key-redacted"
 export OPENAI_MODEL="gpt-4o-mini"
 ```
+
+Use this synthetic placeholder only to understand the variable shape. Do not place a real key directly in a shell command; follow the approved local secret-input method once the development environment policy is defined.
 
 ---
 
@@ -96,14 +121,6 @@ export OPENAI_MODEL="gpt-4o-mini"
 ### Logging
 
 - Standard library `logging` is configured at INFO in `main.py`.
-
-### Dataset (separate)
-
-- The **Caipo Multimodal Dataset** lives under `caipo_multimodal_dataset/` and is used for training/evaluation of future models (e.g. vLLM).  
-- See [`caipo_multimodal_dataset/README.md`](caipo_multimodal_dataset/README.md) for structure, tasks, and usage.  
-- The microservice does not depend on the dataset at runtime; the dataset is for offline training and evaluation.
-
----
 
 ## How to Run
 
@@ -196,9 +213,8 @@ multi-modal-perception/
 │   ├── health.py             # GET /health
 │   ├── openAI.py             # POST /openAI
 │   └── process.py            # POST /process
-├── services/                 # Service layer (e.g., OpenAI)
-│   └── openai_service.py
-└── caipo_multimodal_dataset/ # Training/eval dataset (see its README)
+└── services/                 # Service layer (e.g., OpenAI)
+    └── openai_service.py
 ```
 
 ---
