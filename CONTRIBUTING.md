@@ -1,81 +1,28 @@
-# Contributing
+# Contributing to Provider Integration
 
-## Start here
-
-Before working on this repository, read:
-
-1. `AGENTS.md`
-2. `docs/README.md`
-3. `docs/PLAN.md`
-4. The task-relevant sections of `docs/byok-credential-broker-prd.md`
-5. Applicable ADRs and architecture documents
-
-The PRD defines what must be built. The plan defines when it is built. ADRs define accepted technical decisions. Research is background only.
+Read [AGENTS](AGENTS.md), [CODEX](CODEX.md), the [docs index](docs/README.md), [PRD](docs/byok-credential-broker-prd.md), and [plan](docs/PLAN.md).
 
 ## Workflow
 
-1. Choose one task ID from the first eligible incomplete phase in `docs/PLAN.md`.
-2. Inspect the relevant code and existing tests without changing state.
-3. Write task acceptance criteria and map them to PRD identifiers.
-4. Propose a small implementation plan and identify approval gates.
-5. Obtain approval before editing.
-6. Implement the smallest coherent change.
-7. Add or update tests and documentation.
-8. Run focused checks, then broader relevant checks.
-9. Update the plan and traceability matrix.
-10. Provide the completion report required by `AGENTS.md`.
+1. Agree a task ID and human owner. Inspect the current branch, source, dependencies, and tests.
+2. Propose a small change and acceptance cases; obtain task approval before editing.
+3. Implement only the approved scope, using synthetic fakes where the live contract is unavailable.
+4. Run focused checks, then relevant broader checks. Never run GPU/model-download/provider-paid scripts by default.
+5. Update plan and traceability with actual evidence, and report remaining risks.
+6. Obtain separate approval for dependencies/installations, migrations/data, external/cloud changes, real keys/data, deployment, deletion, and Git writes as specified by AGENTS.
 
-Do not combine unrelated refactors, formatting, dependency changes, migrations, infrastructure, and feature behavior into one change.
+## Scope and teamwork
 
-## Approval-sensitive work
+Do not implement backend user authentication, role administration, credential CRUD, UI, cloud infrastructure, or recovery jobs to bypass an unresolved handoff. Backend ownership still requires authenticated service calls and verified credential bindings.
 
-Separate human approval is required immediately before dependencies, environment installations, migrations, persistent data changes, AWS/IAM/KMS/network changes, real credentials, deployment, and every Git operation listed in `AGENTS.md`.
+Assign files/tasks before concurrent work. Each teammate uses the same current document revision and gives Codex the assigned task ID. Do not let multiple sessions independently redesign the shared contract.
 
-Documentation or source-edit approval does not authorize a later migration, deployment, or Git operation.
+Preserve unrelated code and research copies. A branch is not shared merely because local documents changed; approved commit/push/review is a separate handoff. Do not assume main/branch divergence from old chat messages.
 
-## Branches and reviews
+## Tests and review
 
-- Work on the branch selected by the human. Do not create or switch branches without approval.
-- Keep changes scoped to a plan task.
-- Describe the threat and tenant-isolation impact in reviews.
-- Link changed behavior to PRD requirements and acceptance tests.
-- Identify breaking behavior and legacy-route effects explicitly.
-- Do not stage, commit, push, or open a pull request without the corresponding approval.
+MiniCPM evaluation scripts exist; they are not the provider-integration security suite. T2 proposes an isolated test structure using existing tooling. Installing a new test framework requires approval.
 
-## Tests
+Cover [TC-01 through TC-14](docs/testing/provider-integration-test-plan.md) as relevant: scoped access, validation, version changes, error mapping, no fallback, leakage, request isolation, limits, and compatibility. Test with synthetic placeholders, never real keys in fixtures or output.
 
-The repository does not yet have an established automated test suite. Creating the test framework or adding test dependencies requires a dependency approval. Once approved, each feature phase must add the tests specified in the PRD and traceability matrix.
-
-At minimum, security-sensitive changes require coverage for:
-
-- Valid and invalid authentication.
-- Role and workspace authorization.
-- Cross-tenant denial and IDOR attempts.
-- Credential lifecycle and concurrent rotation.
-- No credential disclosure in any response or captured log.
-- Provider error normalization.
-- No platform-key or alternate-provider fallback.
-- Denied IAM, KMS, or Secrets Manager operations.
-
-Use synthetic credentials and data. Real keys are forbidden in fixtures, `.env` files, CI variables, terminal commands, and test output.
-
-## Documentation
-
-- Update `README.md` for current behavior and setup changes.
-- Update `docs/PLAN.md` only with evidence-backed status.
-- Update the traceability matrix when code or tests satisfy a requirement.
-- Add an ADR for a material architectural choice or reversal.
-- Verify time-sensitive provider claims against official sources at implementation time.
-- Do not copy large research documents into prompts when the approved requirement is already in the PRD.
-
-## Review checklist
-
-- Scope and acceptance criteria are explicit.
-- No unrelated user work was changed.
-- No dependency or approval gate was bypassed.
-- Authentication and authorization occur before tenant resource access.
-- Secrets cannot enter responses, logs, traces, caches, queues, or persistence.
-- Failure cannot cause an undisclosed fallback.
-- Tests cover success, denial, failure, and boundary cases.
-- Documentation and traceability match the implementation.
-- Remaining risks and unrun checks are reported honestly.
+Reviewers verify requirement IDs, approved contract assumptions, current result/model/file_type behavior, no accidental provider/API modernization, test results, and remaining live-integration blockers. An unrun check must be labeled unrun.

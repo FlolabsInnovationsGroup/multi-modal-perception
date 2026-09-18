@@ -1,207 +1,77 @@
-# BYOK Credential Broker Delivery Plan
+# Provider Integration Delivery Plan
 
-## Document control
+Updated 2026-09-18. Replaces the old all-platform Phase 0-7 plan.
+Current state: documentation revision prepared; feature implementation **not started**.
+Authority: [feature PRD](byok-credential-broker-prd.md), [AGENTS](../AGENTS.md).
 
-| Field | Value |
-| --- | --- |
-| Status | Active implementation tracker |
-| Product specification | `docs/byok-credential-broker-prd.md` |
-| Current phase | Phase 0 — security and architecture gate |
-| Current implementation state | Target architecture not implemented |
-| Last updated | 2026-08-08 |
-| Status authority | Human-approved evidence only |
+## Verified baseline
 
-## How to use this plan
+At revision baseline `211c1092551143b5b34412c1ec1604899450469d`:
 
-This file defines delivery order and status; it does not replace the PRD. Work only on tasks whose entry criteria are satisfied. Complete tasks in order unless a human approves a change with documented rationale.
+- FastAPI exposes `/health`, `/process`, and `/openAI`; no service authentication guard is implemented.
+- `services/openai_service.py` uses a global environment key, credential-bearing singleton, prompt-only response cache, and input echo on generation failure.
+- Both processing routes return `result`, `model`, and `file_type`; text, audio, and combined inputs exist.
+- Route handlers log raw exception strings. Audio uploads are read into memory after framework upload handling; non-retention must also examine temporary-file spooling.
+- MiniCPM evaluation/test scripts exist. They are not a dedicated, isolated provider-integration security suite.
+- No backend credential reader, database contract, credential lifecycle integration, IaC, or BYOK test suite was found. Absence in this repository says nothing about FloBrain backend's implementation.
+- Preserve unrelated MiniCPM work and the pre-existing untracked research copy.
 
-Status values are `Not started`, `In progress`, `Blocked`, `Ready for review`, and `Complete`. `Complete` requires named evidence. AI may propose a status update but must not record human approval that did not occur.
+Recheck this baseline before coding; it is not a permanent description of the repository.
 
-## Current-state baseline
+## Approval record
 
-Verified repository findings:
-
-- FastAPI exposes unauthenticated `/health`, `/process`, and `/openAI` routes.
-- OpenAI usage is based on a process-global client and one environment key.
-- An in-memory cross-request prompt cache has no tenant boundary.
-- Provider exceptions can produce a silent input-echo response.
-- There is no authentication, tenancy, PostgreSQL persistence, migration framework, audit system, test suite, Terraform, CI/CD, or deployment definition in this repository.
-- The companion frontend is outside this repository.
-
-The existing service is a prototype baseline, not a secure BYOK implementation.
-
-## Global delivery rules
-
-- Follow root `AGENTS.md` and all mandatory approval gates.
-- OpenAI is first; Anthropic, Gemini, and Azure OpenAI are later roadmap phases.
-- Do not use real credentials until approved staging infrastructure and the real-credential gate exist.
-- Do not combine dependency approval, schema approval, AWS approval, deployment approval, or Git approval.
-- Every completed task updates the traceability matrix with code, tests, and evidence.
-- Any material architecture change requires an ADR and human approval.
-- No phase may bypass unresolved critical threat-model findings.
-
-## Phase 0 — Security and architecture gate
-
-**Goal:** Validate the security boundary, tenancy design, AWS design, provider obligations, delivery controls, and implementation sequence before code or infrastructure work.
-
-**Entry criteria:** Approved PRD and read-only repository baseline. Met.
-
-| ID | Task | Status | Required evidence |
-| --- | --- | --- | --- |
-| P0-01 | Establish repository AI instructions and document governance | Complete | `AGENTS.md`, `CLAUDE.md`, `docs/README.md` |
-| P0-02 | Record current data flow and target trust boundaries | Ready for review | `docs/architecture/byok-data-flow.md` |
-| P0-03 | Produce threat model and abuse-case review | Ready for review | `docs/architecture/byok-threat-model.md` |
-| P0-04 | Define AWS topology, IAM, KMS, network, persistence, deletion, and recovery design | Ready for review | `docs/architecture/byok-aws-design.md` |
-| P0-05 | Confirm product and service role permissions | Ready for review | `docs/architecture/byok-role-permission-matrix.md` |
-| P0-06 | Review OpenAI provider terms/data controls and establish later-provider review template | Ready for review | `docs/architecture/byok-provider-terms-review.md` |
-| P0-07 | Record the approved architectural constraints | Ready for review | ADR-001 through ADR-005 |
-| P0-08 | Establish requirement-to-task/test/evidence traceability | Ready for review | `docs/requirements/byok-traceability-matrix.md` |
-| P0-09 | Assign human owners and resolve blocking placeholders | Not started | Named product, security, architecture, legal, operations, and AWS owners |
-| P0-10 | Obtain the Phase 0 architecture/security/legal gate decision | Not started | Dated human approval or documented changes required |
-
-**Exit criteria:** P0-02 through P0-09 reviewed; all critical threats have an accepted control or explicit risk decision; provider obligations reviewed; architecture and security approvers explicitly authorize Phase 1 planning.
-
-**Gate:** Phase 0 document creation is not approval to install dependencies, create schemas/migrations, provision AWS, use credentials, or deploy.
-
-## Phase 1 — Authentication and tenancy foundation
-
-**Goal:** Build invite-only organizations/workspaces, Cognito token validation with mandatory MFA, authoritative memberships, and enforceable RBAC.
-
-**Entry criteria:** Phase 0 exit approval; dependency proposal approved; schema design approved; migration action separately approved.
-
-| ID | Task | Status | Acceptance focus |
-| --- | --- | --- | --- |
-| P1-01 | Propose dependency and environment changes | Not started | Versions, rationale, security/cost impact, approval |
-| P1-02 | Define API and persistence contracts for users, organizations, workspaces, memberships, and invitations | Not started | PRD sections 5, 9, and 10 |
-| P1-03 | Create migration framework and initial schema after migration approval | Not started | Constraints, rollback, RLS preparation |
-| P1-04 | Implement Cognito JWT validation and mandatory-MFA enforcement | Not started | Issuer, audience/client, signature, expiry, token use, MFA claims |
-| P1-05 | Implement invitation and membership lifecycle | Not started | Invite-only onboarding, expiry, single use, audit |
-| P1-06 | Implement centralized RBAC and workspace authorization | Not started | Owner/admin/member matrix and deny-by-default |
-| P1-07 | Enable and test PostgreSQL tenant isolation/RLS | Not started | Cross-workspace denial under adversarial tests |
-
-**Exit criteria:** Authentication, membership, RBAC, relational constraints, and RLS tests pass; no unauthenticated access to new `/v1` workspace APIs; migration and rollback evidence recorded.
-
-## Phase 2 — AWS Credential Broker foundation
-
-**Goal:** Provision the private broker boundary and secure secret storage through reviewed Terraform.
-
-**Entry criteria:** Phase 1 complete; Terraform and AWS resource proposal approved; accounts, region, budget, IAM, and network owners resolved.
-
-| ID | Task | Status | Acceptance focus |
-| --- | --- | --- | --- |
-| P2-01 | Design Terraform module interfaces and environment separation | Not started | Reproducibility, state security, naming, tags, rollback |
-| P2-02 | Implement network, ECS, RDS, Cognito, KMS, Secrets Manager, logging, and alarms in Terraform | Not started | No resource creation until separate apply approval |
-| P2-03 | Implement private service authentication between API and broker | Not started | Deny untrusted callers and replay |
-| P2-04 | Enforce IAM/KMS/Secrets Manager least privilege | Not started | Application API cannot read/decrypt; broker is resource-scoped |
-| P2-05 | Enforce approved-provider egress and private AWS service access | Not started | VPC endpoints, HTTPS, DNS/redirect policy, no arbitrary egress |
-
-**Exit criteria:** Terraform validation/security review passes; IAM negative tests are designed; cost estimate accepted; an approved staging apply and rollback test complete.
-
-## Phase 3 — OpenAI credential lifecycle
-
-**Goal:** Add write-only OpenAI credential ingestion, validation, versioning, rotation, disablement, and deletion.
-
-**Entry criteria:** Phase 2 staging foundation verified; approved synthetic/staging credential and real-credential action approval.
-
-| ID | Task | Status | Acceptance focus |
-| --- | --- | --- | --- |
-| P3-01 | Implement credential metadata and version schema | Not started | Tenant ownership, one active version, safe metadata only |
-| P3-02 | Implement write-only create and metadata-only retrieval | Not started | No plaintext read-back; redaction and request-body logging disabled |
-| P3-03 | Implement disclosed minimal OpenAI validation | Not started | Capability-specific, rate-aware, safe error handling |
-| P3-04 | Implement atomic rotation | Not started | Failed validation preserves prior active version |
-| P3-05 | Implement immediate disablement and scheduled deletion | Not started | Seven-day recovery window and audit trail |
-
-**Exit criteria:** Lifecycle, concurrency, tenant-isolation, secret-leakage, and recovery tests pass with only approved staging credentials.
-
-## Phase 4 — Brokered OpenAI invocation
-
-**Goal:** Replace global credential execution with request-scoped, authorized provider execution through the broker.
-
-**Entry criteria:** Phase 3 complete; provider adapter contract reviewed; model catalog seeded through an approved process.
-
-| ID | Task | Status | Acceptance focus |
-| --- | --- | --- | --- |
-| P4-01 | Implement normalized provider adapter interface | Not started | Validation, text, transcription, usage, errors, provider request IDs |
-| P4-02 | Implement model catalog and workspace allowlist | Not started | No arbitrary model identifiers |
-| P4-03 | Implement `/v1/workspaces/{workspace_id}/process` | Not started | Authn, membership, policy, credential source, broker call |
-| P4-04 | Remove process-global credential/client assumptions from new flow | Not started | Request-scoped client execution and plaintext lifetime |
-| P4-05 | Remove cache and silent echo behavior from provider execution | Not started | Safe normalized failures and no content retention |
-| P4-06 | Implement usage and safe operational events | Not started | No prompts, audio, transcripts, responses, or secrets |
-
-**Exit criteria:** Functional and adversarial invocation tests pass; invalid/disabled/deleted/rate-limited credentials never cause fallback; platform overhead meets the staged performance gate.
-
-## Phase 5 — Product APIs and companion UI contract
-
-**Goal:** Complete versioned management APIs and a frontend-safe contract for credential, policy, audit, and usage experiences.
-
-**Entry criteria:** Phase 4 stable API behavior; frontend owner assigned.
-
-| ID | Task | Status | Acceptance focus |
-| --- | --- | --- | --- |
-| P5-01 | Publish and validate the OpenAPI contract | Not started | PRD section 10, normalized errors, write-only fields |
-| P5-02 | Implement policy, audit, and usage APIs | Not started | Tenant scoping, pagination, safe metadata |
-| P5-03 | Specify and review companion UI states | Not started | Masking, validation, rotation, disable/delete confirmations |
-| P5-04 | Verify frontend secret-handling controls | Not started | No storage, analytics, replay, support, or body logs |
-
-**Exit criteria:** API contract tests pass; companion frontend team accepts the contract; security review confirms credential fields cannot be persisted or revealed.
-
-## Phase 6 — Hardening and operational readiness
-
-**Goal:** Make the system supportable, recoverable, auditable, and measurable.
-
-**Entry criteria:** Product flows complete in staging.
-
-| ID | Task | Status | Acceptance focus |
-| --- | --- | --- | --- |
-| P6-01 | Implement safe dashboards, metrics, alerts, and immutable audit export | Not started | SLOs, secret-safe labels, evidence retention |
-| P6-02 | Complete incident, compromise, revocation, backup/restore, and break-glass runbooks | Not started | Named owners and exercised procedures |
-| P6-03 | Execute adversarial and secret-leakage test program | Not started | IDOR, RLS, IAM/KMS denial, logs, traces, backups |
-| P6-04 | Execute load, availability, recovery, and rollback tests | Not started | 100 concurrent requests and 250 ms p95 platform overhead target |
-| P6-05 | Complete production security and operational review | Not started | No unresolved critical/high risk without acceptance |
-
-**Exit criteria:** Release acceptance criteria in PRD section 17.7 pass, runbooks are exercised, restore and rollback evidence exists, and owners accept residual risk.
-
-## Phase 7 — Controlled rollout and legacy migration
-
-**Goal:** Release safely through feature flags and retire unauthenticated legacy routes.
-
-**Entry criteria:** Phase 6 approval; deployment action separately approved; design partners and support plan confirmed.
-
-| ID | Task | Status | Acceptance focus |
-| --- | --- | --- | --- |
-| P7-01 | Internal feature-flag rollout | Not started | SLO/security monitoring and rollback |
-| P7-02 | Selected design-partner rollout | Not started | Tenant isolation, support, provider terms, consent |
-| P7-03 | Announce and monitor 30-day legacy migration | Not started | Caller inventory and customer communication |
-| P7-04 | Remove public legacy routes after approval | Not started | No remaining callers; rollback tested |
-| P7-05 | General-availability decision | Not started | Product, security, legal, operations, and SLO signoff |
-
-**Exit criteria:** Approved production rollout, legacy endpoints retired, rollback path retained, and success metrics reported.
-
-## Human decisions and ownership register
-
-| Decision/owner | Needed by | Status |
+| Decision | Evidence | Effect |
 | --- | --- | --- |
-| Product owner | Phase 0 exit | `TBD` |
-| Architecture approver | Phase 0 exit | `TBD` |
-| Security approver and reporting channel | Phase 0 exit | `TBD` |
-| Legal/provider-terms reviewer | Phase 0 exit | `TBD` |
-| Operations/incident owner | Phase 2 | `TBD` |
-| Database/migration owner | Phase 1 | `TBD` |
-| AWS accounts and primary region | Phase 2 | `TBD` |
-| Cost budget and alarm thresholds | Phase 2 | `TBD` |
-| Approved MFA factors and recovery policy | Phase 1 | `TBD` |
-| Approved OpenAI project/data controls/models | Phase 3 | `TBD` |
-| Frontend contract owner | Phase 5 | `TBD` |
-| Design partners and rollout dates | Phase 7 | `TBD` |
+| Documentation scope revision | User approved the proposed documentation-only revision in this conversation on 2026-09-18 | Shorter provider-independent PRD, backend ownership separation, aligned supporting docs |
+| Codex handoff | Same user explicitly requested CODEX instead of CLAUDE | Replace Claude-specific guide; keep AGENTS |
+| Revised PRD wording / local module contract | Pending team review | T1 |
+| Backend live integration contract | Not supplied / not approved | T5 blocked |
+| Feature code, dependency changes, live credentials, deployment, Git writes | Not approved by documentation approval | Obtain task/action-specific approvals |
 
-## Status update rules
+Indra's comments dated August 15 and September 6 are review input; do not label this rewritten package as approved by her.
 
-For every task moved to `Complete`, record in the traceability matrix:
+## Task sequence
 
-- Requirement identifiers and acceptance criteria.
-- Implementation files and migration/IaC identifiers.
-- Automated and manual tests with results.
-- Security review evidence.
-- Human approval when an exit gate requires it.
+Assign a human owner before starting a task. Role labels below are suggested responsibilities, not appointments.
 
-If evidence is unavailable, use `Ready for review`, `Blocked`, or `Not started`; never use `Complete` for planned work.
+| ID | Deliverable and suggested owner | Entry criteria | Status | Exit evidence |
+| --- | --- | --- | --- | --- |
+| T1 | Review scope, local contract, and acceptance cases; lead + backend liaison | Revised documents available | Ready for review | Dated decision on PRD, mock-only interface, first-provider sequence; identify backend contact and blocked decisions |
+| T2 | Synthetic provider-module scaffold and contract tests; integration engineer | T1 approves local scope; task edit plan approved | Not started | Fake credential reader and fake provider, safe typed results, denial tests; no external I/O |
+| T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T2 passes; chosen provider and methods reviewed; dependency action approved if needed | Not started | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
+| T4 | Processing-path integration behind a fail-closed boundary; integration engineer + QA | T3 passes; B6 compatibility decision and local handler plan approved | Not started | Text/audio parity, preserved fields, no shared-key/cache/echo path in new flow, credential checks cannot be bypassed through legacy routes |
+| T5 | Implement actual backend reader and service authentication; backend liaison + integration engineer | B1-B7 resolved and approved; needed dependencies/access separately approved | Blocked: backend contract missing | Contract tests against approved backend environment; credential scope/version/state and denial evidence |
+| T6 | End-to-end security, regression, limits, and operational checks; QA + backend owner | T4/T5 complete; approved staging-only credential use | Not started | Test plan passes; security findings addressed; enablement/release checklist accepted |
+| T7 | Controlled enablement and handoff; lead + operations owner | T6 evidence accepted; separate deployment approval | Not started | Monitored limited rollout, safe rollback exercise, caller migration and release decision |
+
+T2-T4 may use synthetic fakes without T5, after their own approvals. They must remain local/test-only: an unavailable live resolver/authenticator denies access; mocks must not be selectable by production callers or a permissive default. T4 can prepare a handler without publishing a new production route.
+
+Do not implement FloBrain auth, storage, credential CRUD, or UI to unblock T5.
+
+## First provider and future work
+
+Retain **OpenAI as the proposed first implementation slice** because it already provides text generation and transcription here. T1 confirms this sequence. Do not modernize API families or replace model defaults implicitly.
+
+Anthropic, Gemini, Azure OpenAI, and other integrations are future tasks selected by the lead after the first slice. The PRD remains independent of that order. Each addition must declare supported capabilities, approved destinations, authentication, errors, limits, and test evidence; universal provider support is not promised.
+
+## Decisions needed
+
+B1-B7 are specified in the [backend contract](contracts/backend-provider-integration.md). Exact timeout, upload, concurrency, retry, and validation-cost limits must be agreed before their implementation, not guessed as product promises.
+
+The old 99.9% availability / 250 ms overhead / 100-concurrency targets and fixed 30-day route retirement are not carried forward as approved commitments. T1/T6 agree realistic measurements and release limits; B6 controls compatibility. This is not permission to disable security or abruptly remove routes.
+
+## Practical first assignments
+
+- Lead/reviewer: T1 review and confirm provider order, scope, and task ownership.
+- Backend liaison: obtain the existing credential schema/interface and fill B1-B7 with the backend owner. Never request real secret values.
+- Integration engineer: propose T2 files and fake-reader/adapter tests; wait for T1/task approval before editing.
+- Provider engineer: prepare T3 API/validation mapping from current official docs; no live calls.
+- QA/reviewer: review TC-01 through TC-14 and prepare synthetic fixtures and expected results.
+
+People can fill multiple roles. Agree file ownership before concurrent work; avoid multiple agents editing the same task/files.
+
+## Status updates and completion
+
+Record owner, date, requirement IDs, changed files, exact test commands/results, and approval evidence in the traceability matrix. Do not mark implementation complete from documentation alone. If blocked, state the decision needed and continue only independent approved work.
+
+At each handoff, include branch/working-tree facts. Do not assume this branch is synchronized with main or already shared. Staging, committing, pushing, and merging need separate approval; do not make an initial merge a prerequisite without current evidence.

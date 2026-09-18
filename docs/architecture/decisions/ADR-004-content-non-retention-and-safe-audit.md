@@ -1,3 +1,5 @@
+> **SUPERSEDED IN FULL — HISTORICAL DESIGN (2026-09-18).** All decisions, status labels, requirements, and phase gates below are inactive for the revised feature. Do not use them as implementation instructions or evidence of deployed controls. [ADR-006](ADR-006-provider-integration-scope.md) records the scope change; the current PRD and backend contract govern new work. Preserved below for comparison only.
+
 # ADR-004: No Platform Content Retention and Allowlisted Audit Metadata
 
 ## Status
