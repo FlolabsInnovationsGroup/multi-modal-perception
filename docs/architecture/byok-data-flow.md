@@ -1,149 +1,56 @@
-# BYOK Data Flow and Trust Boundaries
+# Provider Integration Data Flow
 
-## Document control
+Status: proposed technical flow for team review, 2026-09-18.
+Replaces the earlier all-platform broker flow. No AWS topology is selected.
 
-| Field | Value |
-| --- | --- |
-| Status | Draft for architecture and security review |
-| PRD basis | Sections 6, 8, 10–14 |
-| Last updated | 2026-08-08 |
+## Current code
 
-## Scope
+Caller -> unauthenticated FastAPI route -> global OpenAI client/environment key -> provider.
+Generation also uses a prompt-only response cache and echoes input on failure. Both routes return result/model/file_type. This is a baseline to change, not a safe BYOK design.
 
-This document describes the current unsafe prototype boundary and the approved target flow for authentication, credential management, provider invocation, auditing, and deletion. It is logical architecture; exact AWS resources and policies are defined in `byok-aws-design.md`.
+## Target logical flow
 
-## Sensitive assets
-
-- Customer provider API key.
-- Cognito token and authenticated identity.
-- Organization/workspace membership and role.
-- Credential metadata and secret ARN.
-- KMS and IAM permissions.
-- Prompt, audio, transient transcript, and provider response.
-- Provider request ID, usage, outcome, and audit records.
-
-## Current flow
-
-```mermaid
-flowchart LR
-    C["Unauthenticated client"] -->|"text/audio"| A["FastAPI /process or /openAI"]
-    A --> S["Process-global OpenAI service"]
-    S --> K["OPENAI_API_KEY environment value"]
-    S --> M["Cross-request in-memory response cache"]
-    S -->|"provider request"| O["OpenAI"]
-    S -->|"on broad exception: echo input"| C
+```text
+User -> FloBrain backend (user authentication, authorization, credential selection)
+                    |
+                    | authenticated service request + bound scope/reference + content
+                    v
+          Multimodal request boundary
+                    |
+                    +-> CredentialReader -> backend-managed protected storage/interface
+                    |      exact permitted version/state; request-local secret
+                    v
+           Selected provider adapter -> approved provider endpoint
+                    |
+                    v
+          result + safe metadata -> FloBrain backend -> User
 ```
 
-Current risks:
+The reader protocol and service authentication are unresolved B1-B3, not implied by the arrows. An internal function boundary does not require another deployed service. Backend-managed storage may contain an encrypted credential or a secure reference; no plaintext database design is authorized.
 
-- No authenticated tenant context or authorization.
-- One global credential and client.
-- Cross-request content cache with no tenant partition.
-- Broad exception handling hides provider failure and returns user content.
-- No durable tenant, policy, audit, or usage model.
-- API service itself holds provider credentials.
+## Invocation order
 
-These behaviors must not be reused in the new `/v1` flow.
+1. Verify the backend caller/context; validate input limits and selected supported provider/model/operation.
+2. Resolve the exact scoped credential/version through the approved reader. Verify returned ownership/provider/state against trusted context.
+3. Apply the agreed admission/state consistency rule immediately before provider use; B4 must cover races, not only sequential checks.
+4. Create request-local provider execution. Transcribe audio if requested, then generate the response with that authorized configuration.
+5. Return actual result plus safe metadata/usage. On failure return a normalized error, not an echo or another key/provider.
+6. Close clients/streams and release secret/content references on every exit path. Never cache across requests.
 
-## Target component flow
+## Validation path
 
-```mermaid
-flowchart LR
-    U["User browser or API client"] -->|"TLS + Cognito JWT"| E["Public API service"]
-    E -->|"membership/RBAC/policy queries"| D[("RDS PostgreSQL")]
-    E -->|"authorized internal request; no provider key"| B["Private Credential Broker"]
-    B -->|"secret ARN lookup metadata"| D
-    B -->|"GetSecretValue under broker role"| S["AWS Secrets Manager"]
-    S -->|"KMS via service"| K["Customer-managed KMS key"]
-    B -->|"HTTPS to approved endpoint"| O["OpenAI API"]
-    B -->|"normalized response + safe metadata"| E
-    E -->|"result"| U
-    E -->|"safe audit/usage event"| D
-    B -->|"safe broker/provider event"| D
-    T["CloudTrail / logs / metrics"] -. "AWS and operational evidence" .-> S
-    T -.-> K
-    T -.-> B
-```
+Backend selects a candidate version -> authenticated validation request -> scoped reader permits that pending version only for validation -> adapter checks specified capability with approved synthetic data -> version-bound validation result -> backend decides whether to activate.
 
-## Trust boundaries
+Validation does not save keys, grant ownership, register users, activate replacements, or start a scheduler. No separate customer write-only credential route is created in this repository.
 
-| Boundary | Untrusted side | Trusted side | Required controls |
-| --- | --- | --- | --- |
-| TB-1 Client to public API | Browser/mobile/API caller | API ingress | TLS, size limits, schema validation, request ID, no body logging |
-| TB-2 Identity to application | JWT claims | Authenticated principal | Signature, issuer, audience/client, expiry, token use, MFA, revocation/disable policy |
-| TB-3 Application to tenant data | User-supplied IDs | Workspace-scoped records | Membership lookup, RBAC, policy, foreign keys, RLS, deny by default |
-| TB-4 API to broker | General application workload | Credential-capable workload | Private networking, workload identity, authenticated request, least privilege, replay controls |
-| TB-5 Broker to secret store | Secret reference | Plaintext credential | Resource-scoped IAM, KMS conditions, TLS, CloudTrail, no cross-request cache |
-| TB-6 Broker to provider | Internal normalized request | External OpenAI endpoint | Endpoint allowlist, TLS, controlled DNS/redirects, timeouts, content/usage policy |
-| TB-7 Workload to telemetry | Runtime objects | Logs/metrics/audit | Field allowlist, redaction, no body/header dumps, immutable export |
+## Boundaries to verify
 
-## Credential creation flow
+| Boundary | Owner/control | Evidence |
+| --- | --- | --- |
+| User -> backend | Backend user auth and authorization; not implemented here | Backend contract approval |
+| Backend -> multimodal | Authenticated caller, fresh bound context, no bypass through old routes | TC-02, TC-14 |
+| Multimodal -> credential source | Least-privilege exact lookup, protected retrieval, state/version consistency | TC-02, TC-05, TC-06, TC-13 |
+| Adapter -> provider | Approved destination/configuration, bounded execution, request-scoped secret | TC-07, TC-09, TC-12 |
+| Runtime -> diagnostics | Allowlisted metadata only; no raw bodies/headers/exceptions | TC-08, TC-11 |
 
-1. Authenticated owner or workspace administrator opens the credential form.
-2. The client prevents analytics/session replay on the form and holds the key only in memory.
-3. The client submits the key over TLS to the write-only credential endpoint.
-4. The public API validates token, MFA requirement, workspace membership, role, input bounds, and provider/model policy before forwarding.
-5. The API forwards the credential through a private authenticated channel to the broker without logging the body.
-6. The broker creates an opaque Secrets Manager secret under the approved KMS key.
-7. PostgreSQL stores tenant ownership, provider, secret ARN, masked fingerprint metadata, state, timestamps, and version—never the value.
-8. The broker performs the disclosed minimum validation for each enabled capability.
-9. A successful validation activates the new credential atomically; a failed replacement leaves the existing active version unchanged.
-10. The API returns metadata and status only. Audit events record the actor and outcome, not the key.
-
-## Invocation flow
-
-1. Client calls `/v1/workspaces/{workspace_id}/process` with JWT, provider, catalog model ID, request ID/idempotency data, and transient content.
-2. API validates authentication, MFA, membership, role/capability, workspace policy, model allowlist, and request limits.
-3. API selects an explicitly permitted credential source. Absence/failure is an error; no implicit fallback occurs.
-4. API sends the broker an authenticated internal request containing safe principal/workspace/policy context and transient content, but no secret value.
-5. Broker rechecks the credential-to-workspace/provider binding and active state.
-6. Broker retrieves the secret exactly once for the in-flight request, creates a request-scoped provider client, and invokes only the approved OpenAI endpoint.
-7. Broker normalizes provider output, usage, request ID, and errors; it releases references after the request.
-8. API returns the result and records only allowlisted operational/audit metadata.
-9. Prompt, audio, transcript, response, authorization header, and provider key are not persisted.
-
-## Rotation, disablement, and deletion
-
-### Rotation
-
-- Create a new secret version without changing the active reference.
-- Validate it using disclosed minimal calls.
-- In one database transaction, activate the new metadata version and deactivate the previous version.
-- If validation or the transaction fails, retain the previous active version.
-- Never reuse plaintext or return the prior value.
-
-### Disablement
-
-- Commit the disabled state in the authoritative database immediately.
-- Reject new retrieval/invocation before Secrets Manager access.
-- In-flight requests follow the approved cancellation/consistency policy and are audited.
-
-### Deletion
-
-- Disable immediately.
-- Schedule Secrets Manager deletion with a seven-day recovery window.
-- Retain tombstone/audit metadata according to policy without retaining plaintext.
-- Database and log deletion do not promise immediate removal from encrypted backups; backup expiry is at most 35 days.
-
-## Data classification and persistence
-
-| Data | Classification | Persistent location | Retention |
-| --- | --- | --- | --- |
-| Provider key | Restricted secret | Secrets Manager only | Active lifecycle plus seven-day deletion recovery |
-| Secret ARN and masked metadata | Confidential tenant metadata | PostgreSQL | Account/lifecycle policy |
-| Prompt/audio/transcript/response | Restricted transient content | None in platform | Request lifetime only |
-| JWT | Restricted authentication material | None | Request lifetime only |
-| Provider request ID and usage | Confidential operational metadata | PostgreSQL/telemetry | Approved usage/audit policy |
-| Credential/audit event | Confidential security evidence | PostgreSQL + immutable export | 12 months |
-| Operational logs | Confidential operational evidence | Approved log service | 30 days |
-| RDS backups | Encrypted recovery data | AWS backup storage | No more than 35 days |
-
-## Open review questions
-
-- Exact service-to-service authentication mechanism between API and broker.
-- Existing AWS region, accounts, DNS/egress implementation, and centralized logging services.
-- Whether request cancellation is required in the initial non-streaming contract.
-- Exact audit export destination and immutability control.
-- Provider data-control configuration and permitted OpenAI endpoints/models for staging and production.
-
-These questions must be resolved before their related Phase 1–3 tasks, not guessed by implementation AI.
+Multimodal stores no credential values or interaction content. FloBrain owns lifecycle metadata and its retention policy; the platform owner owns logging retention and deployment. Provider-side data handling requires separate verification.

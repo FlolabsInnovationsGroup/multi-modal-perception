@@ -1,5 +1,3 @@
-> **REFERENCE ONLY — PRE-REVIEW RESEARCH.** This entire document, including any old PRD/architecture comparison below, is historical background. It does not govern revision 2. Do not use its storage, provider, streaming, pricing, or deployment suggestions as implementation requirements. Start at the [current documentation index](../README.md).
-
 # BYOK Provider Integration Research — Governed Summary
 
 ## Document control
