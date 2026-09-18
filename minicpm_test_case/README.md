@@ -1,45 +1,187 @@
-# MiniCPM Test Cases
+# MiniCPM-V Food Calorie Evaluation
 
-This repository contains test cases for MiniCPM. For the design goals, test coverage, and implementation approach, refer to the [Notion document](https://app.notion.com/p/flolabsrd/Create-test-cases-376a1576955180f5aea5c41b6bee755c?source=copy_link).
+A multimodal food analysis pipeline based on **MiniCPM-V-4.6**.
 
-## Dataset
+This project provides image-text and image-audio inference services
+deployed on JarvisLabs GPU, together with evaluation scripts for food
+calorie estimation and ingredient analysis.
 
-Download the required dataset from [Google Drive](https://drive.google.com/file/d/16-CvPPOci1fVAPghEwj-41vAKaUtImtg/view?usp=drive_link).
+## Features
 
-## Image Tests
+### Image-Text Inference
 
-Run the scripts in the following order:
+Input: - Food image - Text prompt
 
-```bash
-python test_case_image.py
-python eval_food_calories.py
-python eval_ingredients.py
-python ingredient_eval_with_minicpm.py
+Output: - Model-generated response - Structured JSON result for
+evaluation tasks
+
+### Image-Audio Pipeline
+
+The current audio pipeline uses:
+
+    Audio
+    |
+    v
+    Whisper transcription
+    |
+    v
+    Text + Image
+    |
+    v
+    MiniCPM-V-4.6
+    |
+    v
+    Response
+
+It supports food-related image and audio question answering.
+
+## Project Structure
+
+    MiniCPM-V-food-calorie/
+
+    ├── server/
+    │   ├── server.py
+    │   ├── client.py
+    │   ├── demo_multimodal_inference.py
+    │   ├── test_case_image_text_server.py
+    │   └── test_case_image_audio_server.py
+    │
+    ├── evaluation/
+    │   ├── eval_food_calories.py
+    │   └── eval_ingredients.py
+    │
+    ├── data/
+    │   └── README.md
+    │
+    ├── outputs/
+    │   └── .gitkeep
+    │
+    ├── requirements.txt
+    ├── .gitignore
+    └── README.md
+
+## Relationship with Original Implementation
+
+The repository contains two parts.
+
+### Original Multimodal API Framework
+
+Provides: - Generic multimodal inference server - Unified client
+interface - Example inference script
+
+Files:
+
+    server/
+    ├── server.py
+    ├── client.py
+    └── demo_multimodal_inference.py
+
+### Task-specific Evaluation Pipeline
+
+Extends the original framework with: - Food calorie benchmark testing -
+Image-text batch inference - Image-audio processing pipeline -
+Evaluation scripts
+
+Files:
+
+    server/
+    ├── test_case_image_text_server.py
+    └── test_case_image_audio_server.py
+
+    evaluation/
+    ├── eval_food_calories.py
+    └── eval_ingredients.py
+
+## Environment
+
+Tested configuration:
+
+-   GPU: NVIDIA A30
+-   Python: 3.10
+-   PyTorch: 2.10.0 + CUDA 12.8
+-   Transformers: 5.16.1
+
+Model:
+
+    openbmb/MiniCPM-V-4.6
+
+## MiniCPM-V-4.6 Configuration Note
+
+The current environment requires:
+
+``` python
+processor.image_processor.downsample_mode = "4x"
 ```
 
-`test_case_image.py` supports calorie estimation and ingredient prediction. Update the dataset path in the `main` section before running it.
+The default configuration may cause vision feature reshape errors during
+inference.
 
-`ingredient_eval_with_minicpm.py` uses MiniCPM to normalize synonyms between the generated output and the metadata.
+## Deployment on JarvisLabs GPU
 
-`test_case_image.py` uses the MiniCPM API rather than a cloud deployment. It can be used directly for local testing, but the current API does not support combined image and audio input.
+Workflow:
 
-## Jarvis GPU Tests
+1.  Start JarvisLabs GPU instance
+2.  Activate the configured Python environment
+3.  Launch FastAPI inference server
+4.  Send inference requests
+5.  Save outputs for evaluation
 
-The `test_jarvis_gpu` directory contains scripts for running MiniCPM deployed on Jarvis GPU:
+Example:
 
-* `test_case_image_audio.py`: image and audio input
-* `test_case_image_text.py`: image and text input
+``` bash
+python server/test_case_image_text_server.py
+```
 
-Model inference and evaluation are separated. Inference runs in the cloud, while evaluation runs locally, since evaluation logic may require frequent updates and is easier to modify locally.
+or:
 
-## Audio Test
+``` bash
+python server/test_case_image_audio_server.py
+```
 
-`test_case_audio.py` uses audio and text input for speech recognition. It includes both model inference and evaluation.
+## Evaluation
+
+Evaluation scripts:
+
+    evaluation/
+    ├── eval_food_calories.py
+    └── eval_ingredients.py
+
+Supported tasks: - Food calorie estimation - Ingredient extraction and
+comparison
+
+## Current Validation
+
+### Image-Text Pipeline
+
+Validated with local food images.
+
+Pipeline:
+
+    Image + Prompt
+          |
+          v
+    MiniCPM-V-4.6
+          |
+          v
+    JSON response
+
+### Image-Audio Pipeline
+
+Validated with 94 audio samples.
+
+Results: - Total samples: 94 - Successful inference: 94 - Failed
+inference: 0
+
+## Limitations
+
+-   Audio pipeline uses speech transcription followed by image-text
+    inference.
+-   It is not an end-to-end audio-vision foundation model.
+-   Calorie estimation results may require additional normalization and
+    evaluation.
 
 ## Future Work
 
-Add an automation script to:
-
-1. Upload code to Jarvis.
-2. Run the test scripts.
-3. Shut down the Jarvis instance after completion.
+Possible improvements: - Better structured output parsing - More
+evaluation metrics - Containerized deployment - Automated benchmark
+pipeline

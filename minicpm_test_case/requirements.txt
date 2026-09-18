@@ -1,6 +1,52 @@
-openai>=1.0.0
-numpy>=1.24.0
-pandas>=2.0.0
-websockets>=12.0
-tqdm>=4.66.0
-miniaudio>=1.61
+# =========================
+# Deep Learning
+# =========================
+
+torch
+torchvision
+torchaudio
+
+transformers
+accelerate
+
+
+# =========================
+# MiniCPM-V Server
+# =========================
+
+fastapi
+uvicorn
+pydantic
+
+
+# =========================
+# Image Processing
+# =========================
+
+pillow
+requests
+
+
+# =========================
+# Audio Pipeline
+# =========================
+
+openai-whisper
+librosa
+soundfile
+
+
+# =========================
+# Data Processing
+# =========================
+
+numpy
+pandas
+
+
+# =========================
+# Evaluation
+# =========================
+
+scikit-learn
+tqdm
