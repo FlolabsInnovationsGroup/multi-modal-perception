@@ -1,4 +1,4 @@
-> **SUPERSEDED — HISTORICAL ONLY (2026-09-18).** Do not use this document to direct implementation. All approval and phase statements below belong to the previous scope. See [current documentation](../README.md).
+> **SUPERSEDED — HISTORICAL ONLY (2026-09-18).** Do not use this document to direct implementation. All approval and phase statements below belong to the previous scope. See [current documentation](../../provider-integration/README.md).
 
 # Product Requirements Document: Bring Your Own AI Provider Key
 

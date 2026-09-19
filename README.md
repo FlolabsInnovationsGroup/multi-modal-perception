@@ -4,11 +4,13 @@ Python/FastAPI multimodal service with text/audio processing and separate MiniCP
 
 ## Provider-integration feature
 
-Revision 2 documentation incorporates Indra Araujo's review. The feature will read and validate backend-managed provider credentials and use them for model interaction. FloBrain owns user authentication/authorization, protected storage, and credential lifecycle persistence; this repository does not build that platform.
+The consolidated V2 documentation incorporates Indra Araujo's review. The feature will read and validate backend-managed provider credentials and use them for model interaction. FloBrain owns user authentication/authorization, protected storage, and credential lifecycle persistence; this repository does not build that platform.
 
-Start with [AGENTS](AGENTS.md), [CODEX](CODEX.md), the [docs index](docs/README.md), [feature PRD](docs/byok-credential-broker-prd.md), and [plan](docs/PLAN.md). The [Codex kickoff prompt](docs/ai/implementation-start-prompt.md) begins with task discovery and approval.
+Start with [AGENTS](AGENTS.md), [CODEX](CODEX.md), the [docs index](docs/provider-integration/README.md), [feature PRD](docs/provider-integration/requirements.md), and [plan](docs/provider-integration/delivery-plan.md). The [Codex kickoff prompt](docs/provider-integration/codex-start-prompt.md) begins with task discovery and approval.
 
-The revised specification is ready for team review. **Feature code is not implemented.** The actual [backend integration contract](docs/contracts/backend-provider-integration.md) is unresolved. Local mock-based tasks can begin after their review/approval; live credential integration cannot.
+The revised specification is ready for team review. **Feature code is not implemented.** The actual [backend integration contract](docs/provider-integration/technical-design.md) is unresolved. Local mock-based tasks can begin after their review/approval; live credential integration cannot.
+
+Local revision 2.1 now specifies the module architecture, internal types, OpenAI slice, limits, fixtures and acceptance checks. Review L1-L8, then start plan card T2.1 after approval. The earlier Notion mirror has not yet been updated to this revision. This change does not claim the existing routes are safe for BYOK.
 
 ## Current implementation — not the target design
 
@@ -53,6 +55,6 @@ For new-feature local tests, use synthetic fakes and no real key. Do not paste k
 
 ## Working with the team
 
-See [CONTRIBUTING](CONTRIBUTING.md), [SECURITY](SECURITY.md), [test plan](docs/testing/provider-integration-test-plan.md), and [Discord announcement](docs/team/discord-announcement.md).
+See [CONTRIBUTING](CONTRIBUTING.md), [SECURITY](SECURITY.md), [test plan](docs/provider-integration/acceptance-tests.md), and [Discord announcement](docs/provider-integration/team-announcement.md).
 
 Keep actual code separate from planned behavior. Preserve existing response fields until a compatibility change is agreed. Do not follow the archived full-platform plan or superseded AWS/identity ADRs. No automatic branch merge, commit, push, or deployment is authorized by the documents.

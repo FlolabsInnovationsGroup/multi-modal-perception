@@ -8,7 +8,7 @@ Security owner, confidential reporting channel, and incident contact are **not y
 
 ## Feature controls
 
-Follow the current [PRD](docs/byok-credential-broker-prd.md), [backend contract](docs/contracts/backend-provider-integration.md), and [threat checklist](docs/architecture/byok-threat-model.md).
+Follow the current [PRD](docs/provider-integration/requirements.md), [backend contract](docs/provider-integration/technical-design.md), and [threat checklist](docs/provider-integration/security-and-operations.md).
 
 - Real keys never belong in source, AI prompts, chat, URLs, screenshots, command history, test fixtures, CI variables/output, logs, traces, or support messages.
 - Use synthetic values such as `test-provider-key-redacted` for local development/tests.
@@ -25,4 +25,4 @@ The old Cognito/RLS/ECS/Secrets Manager mandates are superseded for this reposit
 
 Stop affected use through the approved control, preserve sanitized evidence, notify the security/backend owner, and coordinate provider-side revocation/replacement with the account owner. Do not independently rotate/delete real credentials or change production permissions without explicit authorization.
 
-See [operations checklist](docs/operations/provider-integration.md) for safe outcomes, staging gates, and rollback. Provider-specific data handling/retention must be verified separately; this service cannot guarantee the provider's retention behavior.
+See [operations checklist](docs/provider-integration/security-and-operations.md) for safe outcomes, staging gates, and rollback. Provider-specific data handling/retention must be verified separately; this service cannot guarantee the provider's retention behavior.
