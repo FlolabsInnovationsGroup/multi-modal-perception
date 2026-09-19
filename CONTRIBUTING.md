@@ -1,6 +1,6 @@
 # Contributing to Provider Integration
 
-Read [AGENTS](AGENTS.md), [CODEX](CODEX.md), the [docs index](docs/README.md), [PRD](docs/byok-credential-broker-prd.md), and [plan](docs/PLAN.md).
+Read [AGENTS](AGENTS.md), [CODEX](CODEX.md), the [docs index](docs/provider-integration/README.md), [PRD](docs/provider-integration/requirements.md), and [plan](docs/provider-integration/delivery-plan.md).
 
 ## Workflow
 
@@ -17,12 +17,12 @@ Do not implement backend user authentication, role administration, credential CR
 
 Assign files/tasks before concurrent work. Each teammate uses the same current document revision and gives Codex the assigned task ID. Do not let multiple sessions independently redesign the shared contract.
 
-Preserve unrelated code and research copies. A branch is not shared merely because local documents changed; approved commit/push/review is a separate handoff. Do not assume main/branch divergence from old chat messages.
+Preserve unrelated work. Historical research is kept once in the archive; do not create new competing instruction copies. A branch is not shared merely because local documents changed; approved commit/push/review is a separate handoff. Do not assume main/branch divergence from old chat messages.
 
 ## Tests and review
 
 MiniCPM evaluation scripts exist; they are not the provider-integration security suite. T2 proposes an isolated test structure using existing tooling. Installing a new test framework requires approval.
 
-Cover [TC-01 through TC-14](docs/testing/provider-integration-test-plan.md) as relevant: scoped access, validation, version changes, error mapping, no fallback, leakage, request isolation, limits, and compatibility. Test with synthetic placeholders, never real keys in fixtures or output.
+Cover [TC-01 through TC-14](docs/provider-integration/acceptance-tests.md) as relevant: scoped access, validation, version changes, error mapping, no fallback, leakage, request isolation, limits, and compatibility. Test with synthetic placeholders, never real keys in fixtures or output.
 
 Reviewers verify requirement IDs, approved contract assumptions, current result/model/file_type behavior, no accidental provider/API modernization, test results, and remaining live-integration blockers. An unrun check must be labeled unrun.
