@@ -2,18 +2,18 @@
 
 ## Scope and authority
 
-Applies to the entire repository. Follow system/platform rules, the current explicit human decision, this file, the current feature PRD, the active plan, accepted current ADRs, and task-specific contracts, in that order. Research and superseded documents are background only. Report material conflicts rather than silently choosing a design.
+Applies to the entire repository. Follow system/platform rules, the current explicit human decision, this file, the current feature PRD, the active plan, accepted decisions in the current review record, and task-specific contracts, in that order. Research and superseded documents are background only. Report material conflicts rather than silently choosing a design.
 
 The current feature is **provider integration**, not a new authentication, tenancy, UI, or cloud platform. The user approved revising the documentation around Indra Araujo's review on 2026-09-18. That approval does not approve an unknown backend integration contract, the newly drafted specifications in advance, feature implementation, or deployment.
 
 ## Read before work
 
-1. Read this file, `CODEX.md`, `docs/README.md`, and `docs/PLAN.md`.
-2. Read `docs/byok-credential-broker-prd.md` and only the current contracts, tests, and source relevant to the assigned task.
+1. Read this file, `CODEX.md`, `docs/provider-integration/README.md`, and `docs/provider-integration/delivery-plan.md`.
+2. Read `docs/provider-integration/requirements.md` and only the current contracts, tests, and source relevant to the assigned task.
 3. Inspect Git status, repository layout, README, dependencies, configuration, and tests read-only. Preserve unrelated changes.
 4. Identify the first relevant incomplete task whose entry criteria are met. If assigned a different task, explain unmet dependencies.
 5. Separate verified facts, proposals, open decisions, and evidence. Never claim a draft is approved or planned tests have passed.
-6. Do not load `docs/archive/`, superseded ADR-001 through ADR-005, the superseded AWS design, or `docs/research/` as implementation instructions.
+6. Do not load `docs/archive/` as implementation instructions.
 
 ## Workflow
 
@@ -44,7 +44,7 @@ FloBrain backend owns user authentication/authorization, ownership policy, crede
 
 Do not create Cognito, membership/RBAC tables, RLS, a separate ECS broker, Secrets Manager/KMS resources, credential-management CRUD/UI, recovery jobs, or a platform model catalog database as prerequisites. These old implementation choices are superseded, not deployed systems to remove.
 
-The real storage, retrieval/decryption, service-authentication, and lifecycle consistency mechanisms are unresolved in `docs/contracts/backend-provider-integration.md`. Use synthetic fakes for approved local tasks; never invent production schemas, endpoints, credentials, or authorization claims.
+The real storage, retrieval/decryption, service-authentication, and lifecycle consistency mechanisms are unresolved in `docs/provider-integration/technical-design.md`. Use synthetic fakes for approved local tasks; never invent production schemas, endpoints, credentials, or authorization claims.
 
 ## Security invariants
 
@@ -67,7 +67,7 @@ Preserve current text/audio behavior and `result`, `model`, `file_type` compatib
 
 Use existing tooling first. Propose any missing dependency separately. Cover success, invalid credentials, scoped-access denial, no fallback, safe errors, concurrency, updated/disabled versions, and leakage. Never weaken tests just to make a build pass.
 
-Update `docs/PLAN.md` and `docs/requirements/byok-traceability-matrix.md` with actual files/results. Update affected contracts, README, security guidance, and ADRs with behavior changes. Verify time-sensitive provider facts with dated official sources before implementation.
+Update `docs/provider-integration/delivery-plan.md` and `docs/provider-integration/acceptance-tests.md` with actual files/results. Update affected contracts in the technical design, README, security guidance, and the decision log in the review record with behavior changes. Verify time-sensitive provider facts with dated official sources before implementation.
 
 ## Completion report
 

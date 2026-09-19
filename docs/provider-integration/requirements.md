@@ -1,7 +1,7 @@
 # Feature Requirements: Provider Integration with Backend-Managed API Keys
 
-Revision: 2 — 2026-09-18. Status: **Ready for team review**.
-Prepared under the user's approved documentation-revision plan, incorporating Indra Araujo's review. This is not a claim that Indra has approved the rewritten wording or an implementation design. The historical filename is retained so existing links continue to work; a separate Credential Broker deployment is not required by this specification.
+Revision: 2.1 — 2026-09-19. Status: **Ready for team review; local implementation specification L1-L8 awaits acceptance**.
+Prepared under the user's approved documentation-revision plan, incorporating Indra Araujo's review. This is not a claim that Indra has approved the rewritten wording or an implementation design. A separate Credential Broker deployment is not required by this specification.
 
 ## 1. Problem and purpose
 
@@ -62,4 +62,10 @@ There are no owner/admin/member roles to implement inside this service. It must 
 
 This feature does not build sign-in, organizations, workspace roles, credential CRUD/UI, cloud provisioning, billing, recovery scheduling, or a new audit platform. It also does not promise a particular deployment topology, retention period, availability percentage, latency target, or provider rollout sequence.
 
-The backend schema/API and secure retrieval mechanism have not been supplied. The [backend contract](contracts/backend-provider-integration.md) records the decisions needed before live integration. The [plan](PLAN.md) allows separately approved mock-based work without pretending that dependency is resolved. Detailed acceptance tests are in the [test plan](testing/provider-integration-test-plan.md), not embedded here.
+The backend schema/API and secure retrieval mechanism have not been supplied. The [backend contract](technical-design.md) records the decisions needed before live integration. The [plan](delivery-plan.md) allows separately approved mock-based work without pretending that dependency is resolved. Detailed acceptance tests are in the [test plan](acceptance-tests.md), not embedded here.
+
+## 7. Review-to-implementation boundary
+
+The technical design's L1-L8 decisions specify the multimodal module's interfaces, architecture, first adapter, limits, compatibility, test doubles and handoff. T1 accepts or amends that package; approved T2-T4 tasks then produce actual implementation tested without external services (M1). This is not merely a mock prototype: the provider adapter and orchestration are real code, exercised through simulated transports. Actual credential retrieval/service authentication and safe live wiring remain T5-T7 (M2).
+
+The short PRD remains provider-independent. Numerical defaults and implementation filenames belong in the design, not duplicated here. No unknown backend endpoint, database, deployment or authorization mechanism is made up to label the documentation complete.
