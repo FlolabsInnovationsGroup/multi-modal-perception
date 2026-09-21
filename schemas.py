@@ -12,3 +12,4 @@ class PerceptionOutput(BaseModel):
     """Expected response body from /process."""
 
     result: str
+    total_tokens: int = 0

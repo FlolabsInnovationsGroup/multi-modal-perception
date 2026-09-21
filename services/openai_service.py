@@ -38,10 +38,10 @@ class UltraFastOpenAIService:
         self._cache: Dict[str, str] = {}
         self._lock = asyncio.Lock()
 
-    async def generate_response(self, user_message: str) -> str:
+    async def generate_response(self, user_message: str) -> tuple[str, int]:
         normalized = user_message.strip()
         if not normalized:
-            return ""
+            return "", 0
 
         cache_key = normalized.lower()
         start = time.monotonic()
@@ -49,7 +49,7 @@ class UltraFastOpenAIService:
         cached = self._cache.get(cache_key)
         if cached is not None:
             elapsed_ms = (time.monotonic() - start) * 1000
-            return cached
+            return cached, 0
 
         try:
             response = await self._client.chat.completions.create(
@@ -63,17 +63,18 @@ class UltraFastOpenAIService:
             )
 
             content = (response.choices[0].message.content or "").strip()
+            total_tokens = response.usage.total_tokens if response.usage else 0
 
             async with self._lock:
                 self._cache[cache_key] = content
 
             elapsed_ms = (time.monotonic() - start) * 1000
 
-            return content
+            return content, total_tokens
 
         except Exception as exc:  # noqa: BLE001
             elapsed_ms = (time.monotonic() - start) * 1000
-            return f"Perception system temporarily unavailable. Echoing input: {normalized}"
+            return f"Perception system temporarily unavailable. Echoing input: {normalized}", 0
 
     async def transcribe_audio(
         self,
@@ -97,7 +98,7 @@ class UltraFastOpenAIService:
         text_input: str,
         audio_bytes: bytes,
         audio_filename: str = "audio.wav",
-    ) -> str:
+    ) -> tuple[str, int]:
         normalized_text = (text_input or "").strip()
         transcript = await self.transcribe_audio(audio_bytes, audio_filename)
 

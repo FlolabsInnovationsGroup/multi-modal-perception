@@ -37,13 +37,13 @@ async def process_data(
             text_input = normalized_text
 
         ai_service = get_ultra_fast_service()
-        processed_string = await ai_service.generate_multimodal_response(
+        processed_string, total_tokens = await ai_service.generate_multimodal_response(
             text_input=text_input,
             audio_bytes=audio_bytes,
             audio_filename=audio_filename,
         )
 
-        return PerceptionOutput(result=processed_string)
+        return PerceptionOutput(result=processed_string, total_tokens=total_tokens)
 
     except RuntimeError as config_error:
         raise HTTPException(
