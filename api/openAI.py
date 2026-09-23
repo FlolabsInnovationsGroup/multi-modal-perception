@@ -45,7 +45,7 @@ async def openAI_data(
             file_type = "text"
 
         ai_service = get_ultra_fast_service()
-        processed_string = await ai_service.generate_multimodal_response(
+        processed_string, total_tokens = await ai_service.generate_multimodal_response(
             text_input=text_input,
             audio_bytes=audio_bytes,
             audio_filename=audio_filename,
