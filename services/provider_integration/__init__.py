@@ -1,0 +1,96 @@
+"""Provider-integration module (internal; not wired to public routes during M1).
+
+Importing this package performs no I/O, reads no environment variables and
+does not import provider adapters or SDKs. Adapters live under ``adapters/``
+and are composed explicitly by wiring code.
+"""
+
+from services.provider_integration.config import (
+    LOCAL_LIMIT_PROFILE,
+    GenerationSettings,
+    LimitProfile,
+    ModuleConfig,
+    ProviderConfig,
+)
+from services.provider_integration.errors import (
+    SAFE_MESSAGES,
+    ErrorCode,
+    ProviderIntegrationError,
+    ProviderOperationError,
+    safe_message,
+)
+from services.provider_integration.ports import (
+    ContextVerifier,
+    CredentialReader,
+    ProviderAdapter,
+    ProviderSession,
+)
+from services.provider_integration.types import (
+    AudioFormat,
+    Binding,
+    BoundaryFailure,
+    ContextKind,
+    CredentialLease,
+    CredentialSource,
+    CredentialState,
+    FileType,
+    InvocationInput,
+    InvocationRequest,
+    InvocationResult,
+    Operation,
+    Outcome,
+    ProbeOutcome,
+    SecretValue,
+    StepOutput,
+    Target,
+    UsageEntry,
+    ValidationRequest,
+    ValidationResult,
+    ValidationStatus,
+    VerifiedContext,
+    is_valid_identifier,
+    new_request_id,
+    sanitize_provider_request_id,
+)
+
+__all__ = [
+    "LOCAL_LIMIT_PROFILE",
+    "SAFE_MESSAGES",
+    "AudioFormat",
+    "Binding",
+    "BoundaryFailure",
+    "ContextKind",
+    "ContextVerifier",
+    "CredentialLease",
+    "CredentialReader",
+    "CredentialSource",
+    "CredentialState",
+    "ErrorCode",
+    "FileType",
+    "GenerationSettings",
+    "InvocationInput",
+    "InvocationRequest",
+    "InvocationResult",
+    "LimitProfile",
+    "ModuleConfig",
+    "Operation",
+    "Outcome",
+    "ProbeOutcome",
+    "ProviderAdapter",
+    "ProviderConfig",
+    "ProviderIntegrationError",
+    "ProviderOperationError",
+    "ProviderSession",
+    "SecretValue",
+    "StepOutput",
+    "Target",
+    "UsageEntry",
+    "ValidationRequest",
+    "ValidationResult",
+    "ValidationStatus",
+    "VerifiedContext",
+    "is_valid_identifier",
+    "new_request_id",
+    "safe_message",
+    "sanitize_provider_request_id",
+]

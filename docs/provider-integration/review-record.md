@@ -1,6 +1,6 @@
 # Provider Integration Review Record
 
-Prepared 2026-09-18; local implementation-specification revision 2.1 added 2026-09-19. Status: **Ready for review; reviewer acceptance pending**. The previous Notion publication is not yet synchronized with revision 2.1.
+Prepared 2026-09-18; local implementation-specification revision 2.1 added 2026-09-19; coordination corrections C1-C3 recorded 2026-10-16; T1 acceptance of L1-L8 recorded 2026-10-23. Status: **L1-L8 accepted by the lead (Mani); Indra's PRD acceptance and backend B1-B7 approval pending**. The previous Notion publication is not yet synchronized with revision 2.1.
 Source: [Indra's Notion review](https://app.notion.com/p/flolabsrd/Requirements-for-Providers-Integration-Feature-3a7a1576955180b9b848e94c2e5f9d30).
 Reviewed page text and its All discussions panel; substantive comments and edit entries were dated August 15 and September 6, 2026. The original review page and its comments were not edited or resolved. The later approved publication uses the separate V2 review page.
 
@@ -177,20 +177,34 @@ Trade-offs: retain existing OpenAI models/API family for the first slice; use st
 
 ### T1 decision sheet — fill during review
 
-All statuses below are **proposed / pending**. Accept or amend each row; record reviewer, date, accepted revision and conditions. Do not tick the whole table just because this documentation task was approved. Team names/contacts remain for the lead to assign.
+Originally all statuses were proposed / pending. Accept or amend each row; record reviewer, date, accepted revision and conditions. Do not tick the whole table just because this documentation task was approved. Team names/contacts remain for the lead to assign.
 
 | ID | Review decision | Status / evidence |
 | --- | --- | --- |
-| L1 | Component architecture, file map, module ownership; no new deployed broker | Pending |
-| L2 | Exact internal types, failure envelopes, operations and secret handling | Pending |
-| L3 | Fake verifier/reader, lifecycle state table and atomic admission tests | Pending |
-| L4 | Text/audio composition, legacy-success mapping and no-spooling live boundary | Pending |
-| L5 | Numerical local limit profile, deadlines, capacity, zero retries and bounded responses | Pending |
-| L6 | OpenAI-first models/API calls, probes, usage/error mapping and SDK preflight | Pending |
-| L7 | Offline test harness and deny-all default; no M1 public wiring | Pending |
-| L8 | M1 evidence/handoff definition and separation from live completion | Pending |
+| L1 | Component architecture, file map, module ownership; no new deployed broker | Accepted as written; Mani (lead); 2026-10-23 |
+| L2 | Exact internal types, failure envelopes, operations and secret handling | Accepted as written; Mani (lead); 2026-10-23 |
+| L3 | Fake verifier/reader, lifecycle state table and atomic admission tests | Accepted as written; Mani (lead); 2026-10-23 |
+| L4 | Text/audio composition, legacy-success mapping and no-spooling live boundary | Accepted as written; Mani (lead); 2026-10-23 |
+| L5 | Numerical local limit profile, deadlines, capacity, zero retries and bounded responses | Accepted as written; Mani (lead); 2026-10-23 |
+| L6 | OpenAI-first models/API calls, probes, usage/error mapping and SDK preflight | Accepted as written; Mani (lead); 2026-10-23 |
+| L7 | Offline test harness and deny-all default; no M1 public wiring | Accepted as written; Mani (lead); 2026-10-23 |
+| L8 | M1 evidence/handoff definition and separation from live completion | Accepted as written; Mani (lead); 2026-10-23 |
 
 Acceptance entry template: `L ID(s); reviewer; date; revision; accepted/amended/rejected; amendment/conditions; affected PI/TC IDs; evidence; task owner`. T1 exits only after the affected documents are reconciled with accepted amendments. Implementation begins with a separately approved T2.1 plan.
+
+**T1 acceptance entry (recorded 2026-10-23):** L1-L8; reviewer Mani (lead), selected in a structured answer to the requesting AI session; 2026-10-23; revision 2.1 including coordination corrections C1-C3 (2026-10-16); **accepted as written, no amendments**; affected PI-01-PI-12, TC-01-TC-14 (local portions); evidence: this record and the delivery-plan approval row; task owners: core track (T2.1-T2.3, T4.1-T4.2) Mani; adapter track (T3.1-T3.2) the teammate on `Sumukhi_First_Multi_Model_Branch` (lead to record the name).
+
+Conditions and open items recorded with this acceptance:
+
+- **Python exception:** T2.1 tests may run on the installed Python 3.13.14 using the standard library only, with no installations. This is an approved deviation from the 3.11/3.12 convention. Results must be re-run on 3.11/3.12 before M1 sign-off.
+- **Not decided in this entry:**
+  - separate acceptance of the TC expectation tables (T1 checklist item 3);
+  - a named backend/integration contact;
+  - any B1-B7 answer.
+
+  These remain open. They do not block T2.1, whose entry criterion is L1-L8 acceptance.
+- **Not Indra's or the backend team's approval.** Indra's acceptance of the rewritten PRD and backend approval of B1-B7 remain pending.
+- T2.1 still needs its own approved edit plan. No Git write, installation or real credential is authorized by this entry.
 
 ### Publication and sharing
 
@@ -218,3 +232,45 @@ Checks executed on 2026-09-19 after drafting:
 Only nine active feature documents and root README/CODEX were edited in this task. Existing consolidation deletions/relocations remain pre-existing changes; no additional files were deleted. The initial patch-validation failures made no changes and were corrected before applying the updates. Git continued to report the existing global-ignore permission warning and line-ending notices; no settings were changed.
 
 Feature tests remain not run; there is no implementation in this task. No production security claim follows from these documentation checks. Notion, Discord, Git history, dependencies and credentials were unchanged.
+
+## Coordination corrections C1-C3 — 2026-10-16
+
+Source: the requesting user (core/integration owner) asked for these corrections and, on 2026-10-16, approved this bounded documentation-only update. Not granted: code, Git writes, installations, Notion republication or Discord posting. This is **not** T1 acceptance. The L1-L8 decision sheet above remains Pending, and these entries are not Indra's or the backend team's approval.
+
+| ID | Decision recorded | Documents reconciled |
+| --- | --- | --- |
+| C1 | T3 may run alongside T2.2/T2.3 once T1 is accepted and a T2.1 checkpoint has been implemented, tested and reviewed. T2 and T3 must both pass review, and be combined, before T4. Shared-interface changes need agreement from both owners before either branch relies on them. T2/T4 evidence is recorded separately from T3 evidence. | Delivery plan (T3/T4 entry, T3.1/T4.1 cards, parallel-tracks section, file ownership), acceptance layers, Codex start prompt, Discord Message 2 draft |
+| C2 | `test_validation.py` covers core/orchestration validation (T2.3). `test_openai_validation.py` covers adapter probes and provider outcomes (T3.2). Every earlier TC-04 assertion is kept in one of the two rows. TC-01 through TC-14 are unchanged as case IDs. | Delivery plan T2.3/T3.2 cards, acceptance TC-04 rows, technical-design L1 file map |
+| C3 | After replacement, a request bound to the old credential version is denied at admission and never silently upgraded. This corrects backend-boundary wording that conflicted with L3 and TC-06. | Technical design backend boundary (lifecycle coordination) |
+
+L1 file-map clarifications added in the same pass: an `adapters/__init__.py` row owned by the adapter track, and a note that the core package `__init__.py` does not import adapters or provider SDKs. Both restate L1's existing rule that only the adapter imports OpenAI; they add no new design.
+
+Observed branch state, recorded as fact rather than acceptance: on 2026-10-16, without fetching, remote commit `df613b0` on `origin/Sumukhi_First_Multi_Model_Branch` contains a pre-checkpoint T3.1 adapter draft with temporary local types. It also adds a core-owned `services/provider_integration/__init__.py` that imports the adapter. The two owners must reconcile this before integration. No file on that branch was edited.
+
+### C1-C3 verification
+
+| Check | Result |
+| --- | --- |
+| Files edited | Five active feature documents (delivery plan, technical design, acceptance tests, Codex start prompt, team announcement) plus this record; no root guide, archive or code file |
+| Relative Markdown links | 86 checked across 26 repository Markdown files; zero broken |
+| Fences / trailing whitespace | Zero issues |
+| Stable IDs | 12 PI, 14 TC, 33 R retained |
+| Stale wording scan | No remaining "T2 passes"/"T3 passes" entry criteria or "use the new active version" wording; `test_validation.py` is referenced only as the core file |
+| Discord draft bodies | 1,209 / 1,586 / 1,348 characters; all below 2,000 |
+| Codex prompt block | 6,684 characters measured by script; the Notion copy now differs from the local prompt (Notion already showed an earlier revision) |
+| Git | `git diff --check` exit 0; no Python/txt/toml/yaml/yml/json changes; nothing staged; no untracked files |
+
+Feature tests remain not run, and no implementation exists on this branch. Git reported LF-to-CRLF notices only; no settings were changed.
+
+## T2.1 interface clarifications — 2026-10-23
+
+**Decision.** The lead (Mani) approved the T2.1 edit plan, including three interface details that L2 left implicit. They are recorded in the technical design under "T2.1 interface clarifications":
+1. Session steps return `StepOutput` / `ProbeOutcome`.
+2. Sessions raise `ProviderOperationError(code, usage)`.
+3. `call_evidence` is opaque.
+
+The design also lists the invariants the types now enforce, all derived from accepted L2/L5/L6.
+
+**Effect.** These are the shared-checkpoint contract for the adapter track. The adapter owner has not yet reviewed them. They should be agreed before the T3 rework relies on them (C1); any change needs agreement from both owners.
+
+**Not decided here.** T2.1 review acceptance, sharing the checkpoint (commit/push), Indra's acceptance and backend B1-B7 all remain pending. Implementation evidence is in the delivery plan and acceptance tests.

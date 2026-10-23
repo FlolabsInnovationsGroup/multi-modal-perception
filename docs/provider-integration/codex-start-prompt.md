@@ -1,6 +1,6 @@
 # Final Codex Implementation Start Prompt
 
-Revision 2.1, 2026-09-19. Canonical prompt for the local implementation specification; design approval and code authorization are separate.
+Revision 2.1, 2026-09-19, with coordination correction C1 added 2026-10-16. Canonical prompt for the local implementation specification; design approval and code authorization are separate.
 
 Use a repository-connected Codex session on the intended checkout. Copy the entire text block below. Tell Codex your assigned task ID if the lead has assigned one. Otherwise it selects the first eligible incomplete task from the current plan.
 
@@ -24,7 +24,7 @@ Do not build Cognito, user roles, invitations, RLS schemas, cloud infrastructure
 
 Choose my assigned task if its entry criteria are met; otherwise explain its blocker and propose the first eligible incomplete task. At the initial document state this is T1, review of the revised PRD and mock-only module scope, not the old platform Phase 0. Do not assume the rewritten PRD or backend contract has already been approved by Indra.
 
-Check the revision 2.1 L1-L8 decision table in docs/provider-integration/review-record.md. If T1 is accepted with any conditions satisfied, choose the first incomplete implementation card T2.1 through T4.2, not another generic architecture exercise. Begin with T2.1 when none is complete. Use the accepted type/file map, limit profile, provider behavior and fixture rules; do not silently redesign them. If T1 is not accepted, present the specific decisions for review and do not code.
+Check the revision 2.1 L1-L8 decision table in docs/provider-integration/review-record.md. If T1 is accepted with any conditions satisfied, choose the first incomplete implementation card T2.1 through T4.2, not another generic architecture exercise. Begin with T2.1 when none is complete. An assigned T3 card is eligible only after T1 acceptance and an implemented, tested, reviewed T2.1 checkpoint; it may then run alongside T2.2/T2.3 under the file ownership recorded in the delivery plan. T4 waits until both T2 and T3 pass review. Do not edit the other track's files without coordination. Use the accepted type/file map, limit profile, provider behavior and fixture rules; do not silently redesign them. If T1 is not accepted, present the specific decisions for review and do not code.
 
 Your first response must be read-only and concise:
 - Current branch and existing changes.
