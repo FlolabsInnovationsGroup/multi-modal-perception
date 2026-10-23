@@ -1,6 +1,6 @@
 # Provider Integration Test and Acceptance Plan
 
-Revision 2.1, 2026-09-19. Status: **Ready for review against design L1-L8**. No feature test below has been run or passed yet. Named tests below are implementation deliverables, not files claimed to exist.
+Revision 2.1, 2026-09-19, with coordination corrections C1-C3 added 2026-10-16 (TC-04 split into core and adapter test files; no assertion removed). Status: **L1-L8 accepted 2026-10-23; T2.1 contract tests implemented and passing locally (71/71, Python 3.13.14), accepted by Mani 2026-10-23**. No other feature test exists yet. Other named tests below are implementation deliverables, not files claimed to exist.
 Requirements live in the PRD; this document defines verification, not additional platform scope.
 
 ## Test cases
@@ -24,8 +24,8 @@ Requirements live in the PRD; this document defines verification, not additional
 
 ## Layers and execution
 
-1. T2: pure unit/contract tests with fake credential reader, fake adapters, and synthetic content. No network, database, actual key, GPU, or model downloads.
-2. T3: first-provider tests with mocked SDK transport and explicit call-count assertions; verify both SDK error mapping and retries.
+1. T2: pure unit/contract tests with fake credential reader, fake adapters, and synthetic content, including the core validation path (`test_validation.py`). No network, database, actual key, GPU, or model downloads.
+2. T3: first-provider tests with mocked SDK transport and explicit call-count assertions; verify both SDK error mapping and retries, including provider probes and outcomes (`test_openai_validation.py`). T3 may run alongside T2.2/T2.3 after the reviewed T2.1 checkpoint (C1); record its evidence separately from T2/T4 evidence.
 3. T4: route/handler regression and boundary tests under mocked dependencies. Preserve MiniCPM work; do not treat model benchmarks as BYOK coverage.
 4. T5: agreed backend contract tests, service-authentication denial, actual state/version behavior. Use an approved non-production environment.
 5. T6: end-to-end with separately approved staging credentials and minimal synthetic content, leakage/limits/concurrency tests, then release checklist.
@@ -55,7 +55,8 @@ All filenames below are proposed under `tests/provider_integration/`. Use obviou
 | TC-01 `test_contracts.py::test_capability_matrix`, `test_openai_adapter.py::test_selected_models` | Only configured operation/model pairs accepted; unsupported choice causes zero provider calls; fake and real adapter satisfy same protocol | Account/model availability and approved live configuration |
 | TC-02 `test_admission.py::test_denial_matrix`, `test_handler.py::test_untrusted_context` | Change each scope/ref/version/source/provider/target/kind separately; unknown evidence, expired context, malicious reader snapshot denied; unverified request: zero reader/provider calls; mismatched reader return: zero provider calls | Real verifier integrity, expiry/replay and actual backend authorization denial |
 | TC-03 `test_isolation.py::test_two_scopes_same_prompt` | Barrier-overlap two identical prompts with A/B keys and distinct answers; each transport sees only its own key; answers/client instances not shared; repeat request invokes again (no response cache) | Concurrent live boundary coverage using approved staging fixtures |
-| TC-04 `test_validation.py::test_probe_and_outcome_matrix` | L6 status mapping table parameterized; text exactly one probe <=8 output-token budget; audio exactly one in-memory one-second silent WAV; no customer input, no activation; successful empty audio transcript is valid; local saturation/timeout indeterminate after trusted validation | Approved live probe/cost policy and account responses |
+| TC-04 (core, T2.3) `test_validation.py::test_validation_orchestration` | Validation is separate from invocation; exactly one probe per validation request, never both capabilities implicitly; no customer input passed to the session; no activation; pending version admitted only for validate, and the result carries the exact checked version; local saturation/timeout indeterminate after trusted validation; fake adapter only | Approved live probe/cost policy and account responses |
+| TC-04 (adapter, T3.2) `test_openai_validation.py::test_probe_and_outcome_matrix` | L6 status mapping table parameterized; text exactly one probe <=8 output-token budget; audio exactly one in-memory one-second silent WAV; no customer input; successful empty audio transcript is valid; mocked transport only | Approved live probe/cost policy and account responses |
 | TC-05 `test_admission.py::test_replacement_and_stale_result` | Pending v2 validates with v2 in result while v1 remains active; failure/timeout doesn't change v1; deletion/replacement during probe yields stale version-bound result; simulated backend rejects it; no activation method on production module | Actual backend atomic activation/stale-result rejection |
 | TC-06 `test_admission.py::test_admission_change_order` | Each disabled/deleted/expired/unknown state denied; pending denied for invoke but allowed validate; lock/barrier proves admitted-before-disable may finish, admitted-after denied; old v1 after rotation denied rather than upgraded; cleanup releases lease | Same ordering against actual shared lifecycle authority |
 | TC-07 `test_orchestrator.py::test_no_fallback_matrix` | For every failure class, spy all adapters/readers/transports: no alternative selection, no automatic second attempt, no success echo; failure at transcription means zero generation calls | Live failures and rollback cannot select platform/legacy route |
@@ -69,7 +70,7 @@ All filenames below are proposed under `tests/provider_integration/`. Use obviou
 
 ### Commands and evidence for implementation
 
-Use an already approved Python 3.11/3.12 environment. Proposed command after test files exist:
+Use an already approved Python 3.11/3.12 environment. Approved exception (lead, 2026-10-23): T2.1 standard-library tests may run on the installed Python 3.13.14 with no installations. Record that version with the results, and re-run on 3.11/3.12 before M1 sign-off. Proposed command after test files exist:
 
 ```text
 python -m unittest discover -s tests/provider_integration -p "test_*.py" -v
@@ -82,7 +83,7 @@ For each task record Python and installed OpenAI/HTTP-transport versions, exact 
 ### M1 sign-off checklist
 
 - [ ] T1 accepted L1-L8 and assigned owners/reviewer; T2.1 through T4.2 evidence accepted.
-- [ ] All fourteen local rows above covered by actual tests, with counts and commands; no missing required checks.
+- [ ] All fourteen local cases above (TC-04 through both its core and adapter rows) covered by actual tests, with counts and commands; no missing required checks.
 - [ ] No credential cross-use, fallback, persistent content or secret leakage in tested paths; no unresolved critical/high findings.
 - [ ] Adapter exercised via mocked transport, not merely replaced entirely by a fake; installed versions recorded.
 - [ ] New module imports without secrets/network; existing unauthenticated routes not connected to it.
@@ -96,21 +97,21 @@ Check local Markdown links, required requirement/task/test references, supersede
 ## Traceability and evidence
 
 Revision 2, 2026-09-18. Old AUTH/CRED/VAL/ROT/DEL/POL/SRC/INV IDs are historical; use current PI-01 through PI-12.
-Status: **Verification designed; feature implementation not started.** Test IDs are planned cases, not existing test functions or passing results.
+Status: **T2.1 local evidence recorded 2026-10-23; all other cases not run.** Partial means only the core type/config/import portion is covered; the full case still needs later cards.
 
 | Requirement | Plan task | Planned tests | Implementation evidence | Result |
 | --- | --- | --- | --- | --- |
-| PI-01 modular providers | T2, T3 | TC-01 | Not implemented | Not run |
-| PI-02 correct scoped credential | T2, T4, T5 | TC-02, TC-03, TC-06, TC-13 | Backend contract B1-B4 pending | Not run |
+| PI-01 modular providers | T2, T3 | TC-01 | T2.1: provider config/ports; `test_contracts.py::CapabilityMatrixTests::test_capability_matrix` | Partial: T2.1 pass 2026-10-23 (3.13); adapter part not run |
+| PI-02 correct scoped credential | T2, T4, T5 | TC-02, TC-03, TC-06, TC-13 | T2.1: exact Binding/Target/context types (`BindingTests`, `TargetAndContextTests`); admission T2.2; B1-B4 pending | Partial: T2.1 pass 2026-10-23 (3.13); admission/handler not run |
 | PI-03 validation | T2, T3, T5 | TC-04, TC-05 | Module contract proposed; B5 pending | Not run |
 | PI-04 selected model interaction | T3, T4 | TC-01, TC-10 | Existing text/audio baseline only; not BYOK | Not run |
 | PI-05 credential changes | T2, T5, T6 | TC-05, TC-06, TC-13 | B4 coordination pending | Not run |
 | PI-06 no fallback | T3, T4, T6 | TC-07, TC-14 | Legacy echo remains until approved code task | Not run |
-| PI-07 results/errors/usage | T2, T3, T4 | TC-04, TC-08, TC-11 | B6 wire format pending | Not run |
-| PI-08 secret protection | T2-T6 | TC-02, TC-08, TC-12 | B1/B3 pending; no new secret handling implemented | Not run |
+| PI-07 results/errors/usage | T2, T3, T4 | TC-04, TC-08, TC-11 | T2.1: result/validation invariants, fixed messages, usage/ID sanitizing (`test_usage_and_safe_ids`, `ResultInvariantTests`, `ValidationResultTests`, `ErrorTests`); B6 wire format pending | Partial: T2.1 pass 2026-10-23 (3.13) |
+| PI-08 secret protection | T2-T6 | TC-02, TC-08, TC-12 | T2.1: `SecretValue`/`CredentialLease` redaction and serialization refusal, hidden exception chains (`SecretValueTests`, `CredentialLeaseTests`); B1/B3 pending | Partial: T2.1 pass 2026-10-23 (3.13); log/trace/filesystem leakage not run |
 | PI-09 isolation/non-retention | T2, T4, T6 | TC-03, TC-08, TC-12 | Legacy cache/spooling risks require code work | Not run |
 | PI-10 approved destinations | T3, T5, T6 | TC-09 | Adapter/destination configuration not implemented | Not run |
-| PI-11 bounded execution | T2-T6 | TC-04, TC-12 | Local L5/L6 proposed; live B5/B7 pending | Not run |
+| PI-11 bounded execution | T2-T6 | TC-04, TC-12 | T2.1: accepted L5 profile and config validation (`LimitProfileTests`, `ProviderConfigTests`); enforcement T2.3; live B5/B7 pending | Partial: config only, T2.1 pass 2026-10-23 (3.13) |
 | PI-12 integration/compatibility | T1, T4-T7 | TC-02, TC-10, TC-13, TC-14 | B1-B7 and API agreement pending | Not run |
 
 ### Evidence format
@@ -118,6 +119,39 @@ Status: **Verification designed; feature implementation not started.** Test IDs 
 Append task ID, owner, date, approved scope, requirement IDs, code/test file paths and functions, exact commands, environment, results, security observations, remaining gaps, and reviewer decision. Never include key values or customer content.
 
 A successful mock test can satisfy the local portion of a requirement, but it does not satisfy T5/T6 backend authorization, state consistency, or live secret isolation. Keep separate evidence entries.
+
+### T2.1 evidence — 2026-10-23
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T2.1. Mani (core owner). Approved edit plan of 2026-10-23: types, ports, errors, config, package init, test package init and `test_contracts.py` |
+| Environment | Python 3.13.14 on Windows 10, standard library only. This is the approved exception; re-run on 3.11/3.12 before M1 sign-off |
+| Command | `python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **71 discovered / 71 passed / 0 failed / 0 errors / 0 skipped** |
+| Reviewer decision | Accepted by Mani on 2026-10-23; 3.11/3.12 re-run still required before M1 sign-off |
+
+**Coverage (core portions only)**
+
+| Case | Tests |
+| --- | --- |
+| TC-01 | `test_capability_matrix`, `test_empty_configuration_enables_nothing` |
+| TC-02 | `BindingTests`, `TargetAndContextTests`: exact field equality, no case-folding, expiry boundary, frozenset-only targets |
+| TC-08 | `SecretValueTests`, `CredentialLeaseTests`, `test_content_absent_from_repr`, `test_result_content_absent_from_repr`, `test_chained_exceptions_are_hidden` |
+| TC-11 | `test_usage_and_safe_ids`, `test_constructor_rejects_negative_bool_and_malformed` |
+| TC-12 (config only) | `LimitProfileTests`, including N-1/N/N+1 deadline boundaries and zero/negative/unknown fields |
+| TC-14 (import only) | `ImportSafetyTests`: subprocess import with no `OPENAI_API_KEY` and sockets disabled; no SDK, adapter or dotenv modules loaded; source scan |
+
+**Security observations**
+- Module-level patches deny socket connections throughout the suite.
+- Only synthetic `test-provider-key-...` canaries are used.
+- Ten deliberate defects applied to a scratch copy each made the suite fail (listed in the delivery plan).
+
+**Gaps**
+- No admission, orchestration, adapter, handler, logging-capture or filesystem tests exist yet.
+- TC-03 through TC-07, TC-09, TC-10 and TC-13 are not run.
+- This is not live, backend or production evidence.
 
 ### Documentation revision evidence
 

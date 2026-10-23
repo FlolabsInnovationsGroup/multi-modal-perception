@@ -1,6 +1,6 @@
 # Discord Team Announcement
 
-Revision 2.1, 2026-09-19. Send these three messages in order only after revision 2.1 Notion publication is verified and the local revision has been committed/shared through the approved Git workflow. Both remain pending. This document does not claim that a push happened. Each message must remain below Discord's 2,000-character limit; paste only the message body. No Discord posting is performed by this documentation task.
+Revision 2.1, 2026-09-19; Message 2 updated for coordination correction C1 on 2026-10-16. Send these three messages in order only after revision 2.1 Notion publication is verified and the local revision has been committed/shared through the approved Git workflow. Both remain pending. This document does not claim that a push happened. Each message must remain below Discord's 2,000-character limit; paste only the message body. No Discord posting is performed by this documentation task.
 
 ## Message 1 — What changed
 
@@ -38,7 +38,7 @@ AGENTS.md and CODEX.md stay at the repository root as working rules/navigation. 
 First assignments to confirm:
 1. Lead: T1 — accept/amend L1-L8, confirm OpenAI-first scope and name owners.
 2. Integration engineer: T2.1–T2.3 — types, fake credential boundary, orchestration and tests.
-3. Provider engineer: T3.1–T3.2 — actual OpenAI adapter tested with simulated responses.
+3. Provider engineer: T3.1–T3.2 — actual OpenAI adapter tested with simulated responses; starts after the reviewed T2.1 checkpoint and runs alongside T2.2–T2.3. T4 starts after both pass review.
 4. QA: review TC-01–TC-14 and synthetic fixtures.
 5. Integration contact: record B1–B7 answers when available, without taking on the backend's implementation.
 

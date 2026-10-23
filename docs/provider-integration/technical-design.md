@@ -102,17 +102,18 @@ Fakes live only in tests; the unconfigured runtime denies access.
 
 | Proposed path | Responsibility / primary task |
 | --- | --- |
-| `services/provider_integration/__init__.py` | Public internal entry points; no I/O at import; T2 |
+| `services/provider_integration/__init__.py` | Public internal entry points; no I/O at import; does not import adapters or provider SDKs; core owner; T2 |
 | `services/provider_integration/types.py` | Internal immutable request/result types, secret holder, enums; T2 |
 | `services/provider_integration/ports.py` | ContextVerifier, CredentialReader, ProviderAdapter and ProviderSession protocols; T2 |
 | `services/provider_integration/errors.py` | Safe failure codes/messages; T2 |
 | `services/provider_integration/config.py` | Explicit immutable model/destination/limit configuration; T2 |
 | `services/provider_integration/orchestrator.py` | Admission, ordering, deadlines, cleanup and safe result composition; T2 |
+| `services/provider_integration/adapters/__init__.py` | Adapter package initialization; adapter owner; T3 |
 | `services/provider_integration/adapters/openai.py` | Only OpenAI SDK-dependent behavior; T3 |
 | `services/provider_integration/handler.py` | Internal input normalization and legacy-success projection; T4 |
 | `services/provider_integration/wiring.py` | Explicit dependency injection; deny-all unconfigured verifier/reader; T4 |
 | `tests/provider_integration/fakes.py` | Synthetic verifier, atomic in-memory reader, scripted provider and clock; T2 |
-| `tests/provider_integration/test_*.py` | Dedicated offline tests listed in acceptance plan; T2-T4 |
+| `tests/provider_integration/test_*.py` | Dedicated offline tests listed in acceptance plan; T2-T4. Validation is split (C2, 2026-10-16): `test_validation.py` covers core/orchestration validation behavior (T2.3); `test_openai_validation.py` covers OpenAI probes and provider outcome mapping (T3.2) |
 
 Only the adapter imports OpenAI. No import reads `OPENAI_API_KEY`, creates a client, loads dotenv, performs network I/O, or registers routes. Provider registry is a small explicit mapping injected at composition, not a discovery framework. Shared configuration and capacity counters contain no keys/content. Do not alter MiniCPM or build provider stubs for future brands.
 
@@ -159,7 +160,24 @@ legacy_success(result) -> PerceptionOutput (success only; errors cannot be proje
 
 Verifier/reader/session infrastructure failures become safe errors; cancellation is propagated after cleanup, not swallowed as a normal result. Sessions never activate/update/delete a credential. The secret holder has constant redacted repr/str, identity-based equality, and denies serialization/copy/pickle. Plaintext extraction is private to the adapter session. Avoid retaining raw SDK exceptions as causes or result fields; capture only allowlisted classifications then discard them. Drop a returned provider request ID if it fails the ID rule or contains the exact in-flight key. Reject any outgoing result containing the exact key as `INTERNAL_ERROR`; this is defense in depth, not a guarantee against every encoded disclosure.
 
-### L3 — Admission, lifecycle and isolated test implementation
+#### T2.1 interface clarifications (2026-10-23)
+
+These fill details that L2 left implicit. The lead approved them in the T2.1 edit plan on 2026-10-23. They are implemented in `services/provider_integration/` and are the shared-checkpoint contract for the adapter track; agree any change with both owners first (C1).
+
+- **Session return types.**
+  - `ProviderSession.generate_text` / `transcribe_audio` return `StepOutput(text, usage)`. Transcription text may be empty; the orchestrator applies L2/L4 to empty generation.
+  - `validate_access` returns `ProbeOutcome(status, reason_code, usage)`. The orchestrator adds request ID, binding, target and `checked_at` to build `ValidationResult`.
+- **Session failures.** A session raises `ProviderOperationError(code, usage)` for an attempted provider step, so the attempted step's usage is retained. Other ports raise `ProviderIntegrationError(code)`. Both expose only the fixed message for their code, and they hide chained exceptions (`__cause__`/`__context__` read as `None`). Still raise them `from None`.
+- **Call evidence.** `call_evidence` is an opaque `object` that only the `ContextVerifier` interprets.
+- **Enforced invariants**, derived from L2/L5/L6:
+  - **Validation status vs reason.** `valid` has no reason. `rejected` requires `CREDENTIAL_REJECTED` or `CAPABILITY_DENIED`. `indeterminate` requires any other code.
+  - **Boundary failures.** `BoundaryFailure` accepts only `INVALID_INPUT` / `ACCESS_DENIED` and a locally generated UUID.
+  - **Content and secrets out of repr.** Text, audio, result and step text are excluded from `repr`.
+  - **Exact enum instances.** Enum fields require enum instances, not raw strings, and opaque IDs are never case-folded.
+  - **Fixed limits.** `LimitProfile` requires `max_retries == 0` and `follow_redirects is False`, and rejects deadlines that are inconsistent with each other.
+  - **Data-only provider config.** `ProviderConfig` holds an `https` destination without credentials, query or fragment. It is data only; no provider values are built into the core.
+  - **Plaintext access.** `SecretValue.reveal_for_session()` is the only plaintext accessor. Only a `ProviderSession` implementation may call it.
+
 
 Invocation accepts only `active`. Validation accepts `active` or `pending`. `disabled`, `deleted`, `expired`, unknown state, absent record or mismatched binding always deny. A replacement is a separate version; the module never searches for another version.
 
@@ -346,7 +364,7 @@ The service verifies returned scope/provider/version/state against trusted conte
 
 No automatic validation scheduler or queue is in this scope. The initial proposal is explicit backend-requested validation. Transient failure returns indeterminate; the backend can request another attempt under its rate/cost policy. A future scheduler needs its own requirements.
 
-Disablement/rotation races require B4's agreed ordering point. Target behavior: operations admitted after disablement cannot acquire/use that credential, and operations admitted after replacement use the new active version. Already-admitted calls may finish. A naive "read status then use later" check cannot by itself guarantee this under races. Agree atomic admission/version checking or another tested coordination mechanism before live use.
+Disablement/rotation races require B4's agreed ordering point. Target behavior: operations admitted after disablement cannot acquire/use that credential. After replacement, the backend binds new requests to the new active version. A request still bound to the old version is denied at admission and is never silently upgraded to the new version (C3, 2026-10-16; consistent with L3 and TC-06). Already-admitted calls may finish. A naive "read status then use later" check cannot by itself guarantee this under races. Agree atomic admission/version checking or another tested coordination mechanism before live use.
 
 ### Outputs to FloBrain
 
