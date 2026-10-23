@@ -270,11 +270,24 @@ Generation sends the existing system prompt and composed user prompt, non-stream
 
 Validation uses exactly one selected capability, never both implicitly. Text probe: fixed `Reply with OK.`, max_tokens=8, temperature=0, store=false; a structurally valid nonempty text response proves access, not exact wording. Audio probe: one-second mono 16-kHz, 16-bit PCM silent WAV generated in memory with standard-library wave/io; a successful transcription object with a text string (including empty string) proves endpoint access. No customer media, prerecorded voice, downloaded fixture or local audio file. Validation sends only this fixture to the selected model; no list-models call is accepted as proof of operation access. Each validation can consume quota. Live approval and backend disclosure/rate controls remain B5.
 
+**T3.2 implementation decisions (approved 2026-10-23).**
+
+| Decision | Rule |
+| --- | --- |
+| B1 | Responses over `max_response_body_bytes` (raw bytes, counted while streaming, error bodies included, per request) → `PROVIDER_RESPONSE_INVALID` |
+| B2 | `Accept-Encoding: identity` is forced, and any other `Content-Encoding` is refused before reading |
+| B3 | A request outside the configured destination's scheme/host/port/path prefix is blocked before sending → `INTERNAL_ERROR` |
+| B4 | Organization/project headers are removed at the transport, on top of A4 |
+| B5 | The text probe has no system prompt; the audio probe uploads `input.wav` |
+| B6 | Probe failures are returned as `ProbeOutcome`: `rejected` only for `CREDENTIAL_REJECTED` / `CAPABILITY_DENIED` |
+
+The production inner transport is `httpx.AsyncHTTPTransport(verify=True, trust_env=False, retries=0)`, because httpx's transport defaults to `trust_env=True` independently of the client.
+
 | Provider/transport evidence | Invocation code | Validation outcome |
 | --- | --- | --- |
 | 401 with allowlisted invalid_api_key code | CREDENTIAL_REJECTED | rejected |
 | Other 401 (may include account/IP restrictions) | ACCESS_DENIED | indeterminate; do not call key invalid from status alone |
-| 403 access denied | CAPABILITY_DENIED | rejected for target, not proof key invalid |
+| 403 access denied (amended by A2, 2026-10-23) | ACCESS_DENIED | indeterminate; the current guide uses 403 for unsupported country/region, which is not a key or model rejection |
 | 404 model_not_found for configured target | CAPABILITY_DENIED | rejected for target; existence and permission are not distinguished |
 | 429 with quota/billing code listed below | QUOTA_EXCEEDED | indeterminate |
 | Other 429 | RATE_LIMITED | indeterminate |
@@ -286,6 +299,22 @@ Validation uses exactly one selected capability, never both implicitly. Text pro
 Unknown local exceptions are INTERNAL_ERROR. Never classify by searching raw exception messages. Read only status and bounded allowlisted provider code/type; never retain raw body. Quota/billing code allowlist: insufficient_quota, credit_balance_exhausted, organization_spend_limit_exceeded, project_spend_limit_exceeded, organization_usage_limit_exceeded; legacy type insufficient_quota also maps to QUOTA_EXCEEDED. Unknown 429 remains RATE_LIMITED without claiming a billing diagnosis. Null/missing usage is null, not zero; map Chat prompt/completion tokens to input/output and transcription's reported token/duration fields when present. Preserve each operation/model separately; no derived total across calls. Captured upstream request IDs must pass L2 filtering.
 
 Official sources checked 2026-09-19 (documentation only; no API call): [GPT-4o mini](https://developers.openai.com/api/docs/models/gpt-4o-mini), [Chat Completions request fields](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create), [transcriptions](https://developers.openai.com/api/reference/python/resources/audio/subresources/transcriptions/methods/create), [Python SDK](https://developers.openai.com/api/reference/python), [error codes](https://developers.openai.com/api/docs/guides/error-codes). These support API family/fields, transcription JSON, configurable retries/timeouts, and error distinctions; local limits/probes are our proposals, not provider recommendations.
+
+**Re-check on 2026-10-23 (T3.1, documentation only; no API call).** [Deprecations](https://developers.openai.com/api/docs/deprecations):
+
+- GPT-4o mini (`gpt-4o-mini-2024-07-18`) shuts down **2027-01-14** (recommended replacement `gpt-6-luna`).
+- `gpt-4o-mini-transcribe` shuts down **2027-02-26** (recommended `gpt-transcribe` or `gpt-live-transcribe`).
+- The model page marks `gpt-4o-mini` Deprecated.
+
+**A1:** M1 keeps these names as configuration values only. The adapter has no built-in model and nothing is silently migrated. Choosing replacement models is a lead decision before M2, with a fresh check. Replacements may need different request fields.
+
+Other findings:
+
+- Chat Completions still accepts `max_tokens` (marked deprecated in favour of `max_completion_tokens`), and `store`/`temperature` are unchanged.
+- Transcriptions still accept `response_format=json` for `gpt-4o-mini-transcribe`.
+- The [error-codes guide](https://developers.openai.com/api/docs/guides/error-codes) lists the 429 quota codes in the allowlist and adds `slow_down` (rate limit).
+- The guide no longer prints the `invalid_api_key` code string. The conservative rule stays: only 401 + `invalid_api_key` is a rejection; any other 401 is indeterminate.
+- The guide documents 403 for an unsupported country/region, hence **A2** below.
 
 Important version boundary: requirements currently permit openai>=1,<2, while current online SDK documentation can describe later releases. T3 must record the installed Python/OpenAI/transport versions and inspect their actual public signatures/source read-only before coding. Do not copy a new transport package name from current docs or upgrade silently. If unavailable, request environment approval; mocked tests alone do not prove live account/model access. Recheck official model availability/deprecations before live enablement.
 
