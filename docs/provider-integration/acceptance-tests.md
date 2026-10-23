@@ -70,7 +70,7 @@ All filenames below are proposed under `tests/provider_integration/`. Use obviou
 
 ### Commands and evidence for implementation
 
-Use an already approved Python 3.11/3.12 environment. Approved exception (lead, 2026-10-23): T2.1 standard-library tests may run on the installed Python 3.13.14 with no installations. Record that version with the results, and re-run on 3.11/3.12 before M1 sign-off. Proposed command after test files exist:
+Use an already approved Python 3.11/3.12 environment. Approved exception (lead, 2026-10-23): T2.1 standard-library tests may run on the installed Python 3.13.14 with no installations. Record that version with the results, and re-run on 3.11/3.12 before M1 sign-off. **Update 2026-10-23:** an approved Python 3.12.10 `.venv` now exists. T2.1-T2.3 re-ran there with 120/120 passing (see the delivery plan's environment section). From now on, use `.venv\Scripts\python` for all runs, including T3 and the final T4.2 suite. Proposed command after test files exist:
 
 ```text
 python -m unittest discover -s tests/provider_integration -p "test_*.py" -v
