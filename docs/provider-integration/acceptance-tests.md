@@ -1,6 +1,6 @@
 # Provider Integration Test and Acceptance Plan
 
-Revision 2.1, 2026-09-19, with coordination corrections C1-C3 added 2026-10-16 (TC-04 split into core and adapter test files; no assertion removed). Status: **L1-L8 accepted 2026-10-23; T2.1 contract tests implemented and passing locally (71/71, Python 3.13.14), accepted by Mani 2026-10-23**. No other feature test exists yet. Other named tests below are implementation deliverables, not files claimed to exist.
+Revision 2.1, 2026-09-19, with coordination corrections C1-C3 added 2026-10-16 (TC-04 split into core and adapter test files; no assertion removed). Status: **L1-L8 accepted 2026-10-23; T2.1 contract tests implemented and passing locally (71/71, Python 3.13.14), accepted by Mani 2026-10-23**; **T2.2 admission tests implemented, accepted by Mani 2026-10-23**; **T2.3 orchestrator tests implemented (120/120 total passing), accepted by Mani 2026-10-23**. No other feature test exists yet. Other named tests below are implementation deliverables, not files claimed to exist.
 Requirements live in the PRD; this document defines verification, not additional platform scope.
 
 ## Test cases
@@ -97,22 +97,22 @@ Check local Markdown links, required requirement/task/test references, supersede
 ## Traceability and evidence
 
 Revision 2, 2026-09-18. Old AUTH/CRED/VAL/ROT/DEL/POL/SRC/INV IDs are historical; use current PI-01 through PI-12.
-Status: **T2.1 local evidence recorded 2026-10-23; all other cases not run.** Partial means only the core type/config/import portion is covered; the full case still needs later cards.
+Status: **T2.1, T2.2 and T2.3 local evidence recorded 2026-10-23; adapter, handler and live cases not run.** Partial means only the core type/config/import portion is covered; the full case still needs later cards.
 
 | Requirement | Plan task | Planned tests | Implementation evidence | Result |
 | --- | --- | --- | --- | --- |
-| PI-01 modular providers | T2, T3 | TC-01 | T2.1: provider config/ports; `test_contracts.py::CapabilityMatrixTests::test_capability_matrix` | Partial: T2.1 pass 2026-10-23 (3.13); adapter part not run |
-| PI-02 correct scoped credential | T2, T4, T5 | TC-02, TC-03, TC-06, TC-13 | T2.1: exact Binding/Target/context types (`BindingTests`, `TargetAndContextTests`); admission T2.2; B1-B4 pending | Partial: T2.1 pass 2026-10-23 (3.13); admission/handler not run |
-| PI-03 validation | T2, T3, T5 | TC-04, TC-05 | Module contract proposed; B5 pending | Not run |
-| PI-04 selected model interaction | T3, T4 | TC-01, TC-10 | Existing text/audio baseline only; not BYOK | Not run |
-| PI-05 credential changes | T2, T5, T6 | TC-05, TC-06, TC-13 | B4 coordination pending | Not run |
-| PI-06 no fallback | T3, T4, T6 | TC-07, TC-14 | Legacy echo remains until approved code task | Not run |
-| PI-07 results/errors/usage | T2, T3, T4 | TC-04, TC-08, TC-11 | T2.1: result/validation invariants, fixed messages, usage/ID sanitizing (`test_usage_and_safe_ids`, `ResultInvariantTests`, `ValidationResultTests`, `ErrorTests`); B6 wire format pending | Partial: T2.1 pass 2026-10-23 (3.13) |
+| PI-01 modular providers | T2, T3 | TC-01 | T2.1: provider config/ports (`test_capability_matrix`). T2.3: unsupported target/adapter capability denied before the reader (`test_denied_before_reader`) | Partial: T2.1 + T2.3 pass 2026-10-23 (3.13); adapter part not run |
+| PI-02 correct scoped credential | T2, T4, T5 | TC-02, TC-03, TC-06, TC-13 | T2.1: exact Binding/Target/context types. T2.2: `test_admission.py` denial, verifier, state and isolation tests against the fakes. B1-B4 pending | Partial: T2.1 + T2.2 pass 2026-10-23 (3.13); orchestrator/handler not run |
+| PI-03 validation | T2, T3, T5 | TC-04, TC-05 | T2.2: reader/backend version tests. T2.3: core validation path (`test_validation.py`); adapter probes T3.2; B5 pending | Partial: T2.2 + T2.3 pass 2026-10-23 (3.13); adapter half not run |
+| PI-04 selected model interaction | T3, T4 | TC-01, TC-10 | T2.3: exact configured targets and L4 composition (`test_input_composition_matrix`); real adapter T3; handler projection T4.1 | Partial: T2.3 pass 2026-10-23 (3.13) |
+| PI-05 credential changes | T2, T5, T6 | TC-05, TC-06, TC-13 | T2.2: rotation, disable and ordering tests against the atomic fake (`test_rotation_denies_old_version`, `test_admission_change_order`); real B4 pending | Partial: simulated only, T2.2 pass 2026-10-23 (3.13) |
+| PI-06 no fallback | T3, T4, T6 | TC-07, TC-14 | T2.3: `test_no_fallback_matrix` (no alternate adapter, no retry, no echo). Legacy route echo unchanged and disconnected | Partial: core only, T2.3 pass 2026-10-23 (3.13) |
+| PI-07 results/errors/usage | T2, T3, T4 | TC-04, TC-08, TC-11 | T2.1: result/validation invariants, fixed messages, usage/ID sanitizing. T2.3: per-step usage, safe failure codes (`test_usage_survives_generation_failure`, `test_usage_is_sanitized`, `test_probe_outcome_matrix`); B6 wire format pending | Partial: T2.1 + T2.3 pass 2026-10-23 (3.13) |
 | PI-08 secret protection | T2-T6 | TC-02, TC-08, TC-12 | T2.1: `SecretValue`/`CredentialLease` redaction and serialization refusal, hidden exception chains (`SecretValueTests`, `CredentialLeaseTests`); B1/B3 pending | Partial: T2.1 pass 2026-10-23 (3.13); log/trace/filesystem leakage not run |
-| PI-09 isolation/non-retention | T2, T4, T6 | TC-03, TC-08, TC-12 | Legacy cache/spooling risks require code work | Not run |
+| PI-09 isolation/non-retention | T2, T4, T6 | TC-03, TC-08, TC-12 | T2.2: reader-level isolation. T2.3: per-request session/key/answer and no response cache (`test_two_scopes_same_prompt_isolated`); full TC-03 is T4.2; legacy cache/spooling risks remain | Partial: T2.2 + T2.3 pass 2026-10-23 (3.13) |
 | PI-10 approved destinations | T3, T5, T6 | TC-09 | Adapter/destination configuration not implemented | Not run |
-| PI-11 bounded execution | T2-T6 | TC-04, TC-12 | T2.1: accepted L5 profile and config validation (`LimitProfileTests`, `ProviderConfigTests`); enforcement T2.3; live B5/B7 pending | Partial: config only, T2.1 pass 2026-10-23 (3.13) |
-| PI-12 integration/compatibility | T1, T4-T7 | TC-02, TC-10, TC-13, TC-14 | B1-B7 and API agreement pending | Not run |
+| PI-11 bounded execution | T2-T6 | TC-04, TC-12 | T2.1: accepted L5 profile and config validation. T2.3: enforcement of byte limits, capacity, deadlines, single attempts and bounded cleanup (`test_limits.py`); response-body cap T3.2; live B5/B7 pending | Partial: T2.1 + T2.3 pass 2026-10-23 (3.13) |
+| PI-12 integration/compatibility | T1, T4-T7 | TC-02, TC-10, TC-13, TC-14 | T2.1 import safety; T2.2 reader outage fails closed (`test_outage_and_no_fallback`); B1-B7 and API agreement pending | Partial: T2.1 + T2.2 pass 2026-10-23 (3.13) |
 
 ### Evidence format
 
@@ -152,6 +152,75 @@ A successful mock test can satisfy the local portion of a requirement, but it do
 - No admission, orchestration, adapter, handler, logging-capture or filesystem tests exist yet.
 - TC-03 through TC-07, TC-09, TC-10 and TC-13 are not run.
 - This is not live, backend or production evidence.
+
+### T2.2 evidence — 2026-10-23
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T2.2. Mani (core owner). Approved edit plan of 2026-10-23: `fakes.py` and `test_admission.py`; no production code |
+| Environment | Python 3.13.14 on Windows 10, standard library only (approved exception) |
+| Command | `python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **86 discovered / 86 passed / 0 failed / 0 errors / 0 skipped** (15 new in `test_admission.py`). `test_admission.py` passed 10 of 10 repeated runs |
+| Reviewer decision | Accepted by Mani on 2026-10-23; 3.11/3.12 re-run still required before M1 sign-off |
+
+**Coverage (reader and verifier portions only)**
+
+| Case | Tests |
+| --- | --- |
+| TC-02 | `test_denial_matrix`: each scope/ref/version/source/provider/target change, case-variant scope, empty targets, expired and non-verified context. `test_verifier_denial_matrix`: unknown/unhashable/revoked/expired evidence, every binding field, kind and targets. `test_unverified_request_never_reaches_reader`: zero reader calls |
+| TC-03 | `test_two_scopes_concurrent_isolation`: barrier overlap, each scope sees only its own synthetic key, a fresh `SecretValue` per admission |
+| TC-05 | `test_replacement_and_stale_result`: pending v2 validates as v2 while v1 stays active; a timeout leaves v1 active; deleting v2 mid-probe gives a v2-bound result that the simulated backend refuses. `test_production_module_has_no_lifecycle_actions` |
+| TC-06 | `test_state_matrix` (states × invoke/validate); `test_admission_change_order` and both gate-ordered concurrency tests; `test_rotation_denies_old_version` (C3); `test_lease_released_on_every_exit`; `test_cancel_while_waiting_records_no_admission` |
+| TC-13 | `test_outage_and_no_fallback`: outage and missing record fail closed with a canary `OPENAI_API_KEY` present; the fakes never read the environment |
+
+**Security observations**
+- A network guard denies every non-loopback connect and DNS lookup during the module.
+- Fake keys must use the `test-provider-key-` prefix, and real-looking values are refused.
+- Exception renderings contain no key.
+
+**Gaps**
+- Not yet covered: the orchestrator's re-check of a malicious reader snapshot, and the "zero provider calls" assertions (T2.3).
+- Handler-level denial is T4.1.
+- Real verifier/reader behavior is M2.
+
+### T2.3 evidence — 2026-10-23
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T2.3. Mani (core owner). Approved edit plan of 2026-10-23: `orchestrator.py`, fakes additions, `test_orchestrator.py`, `test_limits.py`, `test_validation.py`; decisions D1-D5 |
+| Environment | Python 3.13.14 on Windows 10, standard library only (approved exception) |
+| Command | `python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **120 discovered / 120 passed / 0 failed / 0 errors / 0 skipped**. 10 repeated full runs OK; no warnings under `-X dev -W always` |
+| Reviewer decision | Accepted by Mani on 2026-10-23; 3.11/3.12 re-run still required before M1 sign-off |
+
+**Coverage (core portions only)**
+
+| Case | Tests |
+| --- | --- |
+| TC-02 | `test_tampered_lease_never_reaches_provider` (other version/scope, pending state, narrower targets, non-lease: zero sessions); `test_denied_before_reader` (zero reader and provider calls) |
+| TC-03 | `test_two_scopes_same_prompt_isolated` (barrier overlap, own key and answer, repeat request invokes again); `test_one_session_and_admission_per_request` |
+| TC-04 core (C2) | `test_validation.py`: `test_single_probe_valid_result`, `test_probe_outcome_matrix`, `test_local_failures_are_indeterminate`, `test_reader_and_lease_failures_are_indeterminate`, `test_probe_and_overall_timeouts`, `test_capacity`, `test_no_customer_content_and_no_activation` |
+| TC-05 core | `test_pending_version_validates_as_itself` |
+| TC-07 | `test_no_fallback_matrix`: 14 failure classes × 2 stages; one attempt; no other adapter; zero generation after a failed transcription; no echo |
+| TC-08 core | Key/content canaries absent from results for SDK-style exceptions, reader/open/close failures and key-containing output |
+| TC-10 core | `test_input_composition_matrix`: audio-only, text+audio, empty transcript, `file_type` |
+| TC-11 core | `test_usage_survives_generation_failure`, `test_usage_is_sanitized`, plus the usage expectations in the no-fallback matrix |
+| TC-12 core | `test_limits.py`: text/audio/transcript/prompt/generation N-1/N/N+1 including multi-byte; shared non-queuing capacity of 8; admit, step and overall deadlines; bounded cleanup; single attempts |
+
+**Security observations**
+- A network guard is active in every new module.
+- Only synthetic keys are used.
+- The scripted adapter captures calls in test memory with content and key fields excluded from repr.
+
+**Gaps**
+- Adapter transport and response-size cap (T3.2).
+- Handler/wiring (T4.1).
+- Logging/filesystem/full isolation (T4.2).
+- No live evidence.
 
 ### Documentation revision evidence
 
