@@ -26,6 +26,8 @@ Recheck this baseline before coding; it is not a permanent description of the re
 | Codex handoff | Same user explicitly requested CODEX instead of CLAUDE | Replace Claude-specific guide; keep AGENTS |
 | Revised PRD wording / local module contract | L1-L8 accepted as written by the lead (Mani) on 2026-10-23; Indra's PRD acceptance still pending | T1 L1-L8 accepted; T2.1 eligible after its own edit-plan approval |
 | Python 3.13 test exception | Lead (Mani) approved on 2026-10-23 | T2.1 tests may run on installed Python 3.13.14, standard library only, no installs; re-run on 3.11/3.12 before M1 sign-off |
+| Python 3.12 environment | Lead (Mani) approved on 2026-10-23 | Python 3.12.10 installed for the user via winget; project `.venv` from the unchanged `requirements.txt`; versions recorded below |
+| T3 takeover | Lead (Mani) decided on 2026-10-23; adapter owner unavailable | Mani owns T3.1-T3.2; draft `f7fde62` reused with credit via a separately approved cherry-pick; her branch untouched; no independent reviewer (recorded risk) |
 | Backend live integration contract | Not supplied / not approved | T5 blocked |
 | Documentation consolidation and Notion V2 publication | User explicitly approved the proposed cleanup/publication plan on 2026-09-18 | Merge active documents, archive superseded material, remove the confirmed research duplicate, publish under the existing V2 page; no code or Git writes |
 | Feature code, dependency changes, live credentials, deployment, Git writes | Not approved by documentation approval | Obtain task/action-specific approvals |
@@ -42,7 +44,7 @@ Assign a human owner before starting a task. Role labels below are suggested res
 | --- | --- | --- | --- | --- |
 | T1 | Review scope, L1-L8 local contract, and acceptance cases; lead + backend liaison | Revision 2.1 documents available | L1-L8 accepted 2026-10-23 (Mani, lead); still open: separate TC-table acceptance, named backend contact | Accept/amend each L decision, first-provider sequence and named owners; identify backend contact and live-only blocked decisions |
 | T2 | Synthetic provider-module scaffold and contract tests; integration engineer | T1 approves local scope; task edit plan approved | In progress: T2.1 accepted and shared 2026-10-23; Core track complete: T2.1, T2.2 and T2.3 accepted 2026-10-23 (Mani); T2.2/T2.3 committed locally, not pushed | Fake credential reader and fake provider, safe typed results, denial tests; no external I/O |
-| T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T1 accepted and the T2.1 checkpoint implemented, tested and reviewed; may then run alongside T2.2/T2.3; chosen provider and methods reviewed; dependency action approved if needed | Not started (pre-checkpoint draft exists; see Parallel tracks) | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
+| T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T1 accepted and the T2.1 checkpoint implemented, tested and reviewed; may then run alongside T2.2/T2.3; chosen provider and methods reviewed; dependency action approved if needed | Not started; **taken over by Mani 2026-10-23** (pre-checkpoint draft `f7fde62` to be reused; see Parallel tracks) | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
 | T4 | Processing-path integration behind a fail-closed boundary; integration engineer + QA | T2 and T3 both pass review and are combined; local handler contract/compatibility assumptions approved in T1; no exposed API change | Not started | Text/audio parity, preserved fields, no shared-key/cache/echo path in new flow, local fail-closed handler and bypass tests; externally reachable integration deferred to T5/T6 |
 | T5 | Implement actual backend reader and service authentication; backend liaison + integration engineer | B1-B7 resolved and approved; needed dependencies/access separately approved | Blocked: backend contract missing | Contract tests against approved backend environment; credential scope/version/state and denial evidence |
 | T6 | End-to-end security, regression, limits, and operational checks; QA + backend owner | T4/T5 complete; approved staging-only credential use | Not started | Test plan passes; security findings addressed; enablement/release checklist accepted |
@@ -64,9 +66,21 @@ File ownership stated by the requesting user on 2026-10-16 (role labels; the lea
 | Track | Owner | Files |
 | --- | --- | --- |
 | Core (T2, T4) | Integration engineer / core owner | `services/provider_integration/__init__.py`, `types.py`, `ports.py`, `errors.py`, `config.py`, `orchestrator.py`, `handler.py`, `wiring.py`; `tests/provider_integration/__init__.py`, `fakes.py` and the core tests (`test_contracts.py`, `test_admission.py`, `test_orchestrator.py`, `test_limits.py`, `test_validation.py`, `test_handler.py`, `test_isolation.py`, `test_leakage.py`, `test_import_safety.py`) |
-| Adapter (T3) | Provider engineer / adapter owner | `services/provider_integration/adapters/__init__.py`, `adapters/openai.py`; `test_openai_adapter.py`, `test_openai_transport.py`, `test_openai_validation.py` |
+| Adapter (T3) | Mani since 2026-10-23 (originally the teammate on `Sumukhi_First_Multi_Model_Branch`, now unavailable) | `services/provider_integration/adapters/__init__.py`, `adapters/openai.py`; `test_openai_adapter.py`, `test_openai_transport.py`, `test_openai_validation.py` |
 
 Do not edit the other track's files without coordinating first. Record T2/T4 evidence separately from T3 evidence and reconcile both during integration.
+
+**T3 takeover (2026-10-23).** The adapter owner is unavailable, and the lead (Mani) took over T3.1-T3.2.
+
+- **Reuse with credit.** The draft `f7fde62` on `origin/Sumukhi_First_Multi_Model_Branch` is reused with credit: it is brought onto `Mani's_First_Multi_Model_Branch` by a separately approved cherry-pick that keeps her authorship. It is then reworked against the shared interfaces and the findings in `docs/reviews/2026-10-16-t3.1-openai-adapter-review.md`. Her branch is left untouched; no force push or rewrite.
+- **Combining the tracks.** With one owner on one branch, "combined" in step 4 above means T3 is committed on the core branch. There is no separate branch merge.
+- **Guardrails kept for T3.** The adapter-track rules still apply:
+  - adapter tests use shared types and mocked transport only, independent of the orchestrator;
+  - SDK preflight and dated official sources come before coding;
+  - no dependency or model changes without approval;
+  - T3 evidence is labelled separately;
+  - core files change only through an agreed interface change.
+- **No independent reviewer.** The two-person review cross-check no longer exists. Mitigations: mutation checks, a separate code review of the adapter before M1, and a request for an independent reviewer (for example the original PRD reviewer) because the adapter handles real keys. M1 sign-off records whether that review happened.
 
 Observed state on 2026-10-16 (read-only check, no fetch): remote branch `origin/Sumukhi_First_Multi_Model_Branch` has commit `df613b0` ("T3.1: add OpenAI adapter with mocked tests", 2026-10-11). It came before any T2.1 checkpoint and uses temporary local result types. It is a **pre-checkpoint draft, not accepted T3 evidence**. It also adds `services/provider_integration/__init__.py`, a core-owned file that imports the adapter when the package is imported. Agree how to resolve this before the tracks are combined, because L1 import safety (TC-14) requires that only the adapter imports the provider SDK.
 
@@ -234,6 +248,53 @@ Card status: **T2.1 accepted 2026-10-23 by Mani** (evidence below; shared as `82
 - These are local double-based results, not live evidence.
 - Results must be re-run on 3.11/3.12 before M1 sign-off.
 - The shared interface is unchanged from the `8227c8e` checkpoint. The adapter owner still has to confirm `StepOutput`/`ProbeOutcome`/`ProviderOperationError` and the D1/D4 semantics before building on them.
+
+### Environment setup and T3.1 SDK preflight — 2026-10-23
+
+**Approval and setup**
+- **Approval:** the lead (Mani) approved installing Python 3.12.10 and creating a project `.venv` from the pinned `requirements.txt`. `requirements.txt` was not changed and no lockfile was created; `.venv/` is already git-ignored.
+- **Install:** a first manual install attempt left no Python 3.12 on this PC, so the approved fallback was used: `winget install --id Python.Python.3.12 --version 3.12.10 -e --source winget --scope user`. The package came from the Microsoft winget repository (publisher Python Software Foundation), installer `https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe`, with winget reporting "Successfully verified installer hash" (manifest SHA256 `67b5635e80ea51072b87941312d00ec8927c4db9ba18938f7ad2d27b328b95fb`). python.org lists 3.12.10 (2025-04-08) as the newest 3.12 release with a Windows installer.
+- **Environment created:** `py -3.12 -m venv .venv`, then `.venv\Scripts\python -m pip install -r requirements.txt` (pip 25.0.1, not upgraded).
+- **Dependency check:** `pip check` reported no broken requirements.
+
+**Installed versions (`pip freeze`)**
+
+| Package | Version |
+| --- | --- |
+| Python | 3.12.10 (64-bit) |
+| openai | **1.109.1** (resolved from `>=1.0.0,<2.0.0`) |
+| httpx | **0.28.1** |
+| httpcore | 1.0.9 |
+| pydantic / pydantic_core | 2.6.1 / 2.16.2 |
+| fastapi / starlette / uvicorn | 0.109.2 / 0.36.3 / 0.27.1 |
+| python-dotenv / python-multipart | 1.0.1 / 0.0.27 |
+| requests / urllib3 / certifi | 2.34.2 / 2.8.0 / **2026.10.23** |
+| anyio / sniffio / h11 / idna / jiter / distro / tqdm / click / colorama / typing_extensions / annotated-types / charset-normalizer | 4.15.1 / 1.3.1 / 0.16.0 / 3.20 / 0.18.0 / 1.9.0 / 4.70.1 / 8.5.0 / 0.4.6 / 4.16.0 / 0.8.0 / 3.5.2 |
+
+Note: `certifi 2026.10.23` was published the same day it was installed. It is an indirect dependency of `requests`, which only the GPU benchmark uses. Watch for a quick follow-up release.
+
+**Python 3.12 regression run (T2.1-T2.3)**
+- Command: `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v`
+- Result: **120 discovered / 120 passed / 0 failed / 0 errors / 0 skipped**; 3 further repeats OK; no warnings under `-X dev -W always`.
+- This satisfies the 3.11/3.12 re-run condition for T2.1-T2.3. The final T4.2 full-suite run must also use this environment.
+
+**T3.1 SDK preflight (read-only, no client created, no network)**
+
+| Area | Finding |
+| --- | --- |
+| `AsyncOpenAI.__init__` parameters | `api_key`, `organization`, `project`, `webhook_secret`, `base_url`, `websocket_base_url`, `timeout`, `max_retries`, `default_headers`, `default_query`, `http_client` |
+| Environment reads in `openai._client` | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`, `OPENAI_WEBHOOK_SECRET`; each is read when the argument is not supplied |
+| `httpx.AsyncClient` defaults | `verify=True`, `follow_redirects=False`, `trust_env=True` (picks up proxy/TLS environment settings). `openai._base_client` references `follow_redirects`; `httpx.MockTransport` is available |
+| `chat.completions.create` | Accepts `messages`, `model`, `max_tokens` (and `max_completion_tokens`), `temperature`, `store`, `stream`, `timeout`, `extra_*` |
+| `audio.transcriptions.create` | Accepts `file`, `model`, `response_format`, `language`, `prompt`, `temperature`, `stream`, `timeout` |
+| Exceptions | `APIError` fields: `status_code`, `code`, `type`, `param`, `body`, `request_id`, `response`. Status classes: 400 `BadRequestError`, 401 `AuthenticationError`, 403 `PermissionDeniedError`, 404 `NotFoundError`, 409 `ConflictError`, 422 `UnprocessableEntityError`, 429 `RateLimitError`; `InternalServerError` has no fixed status. `APITimeoutError` subclasses `APIConnectionError`, so timeouts must be classified first |
+
+**Implications for T3.1/T3.2** (to be covered in their plans, not yet implemented):
+- Always pass the key and the configured destination explicitly.
+- Organization/project settings must not be inherited from the environment: verify how the SDK treats an explicit value versus `None`, and strip or deny those headers in the owned transport if needed.
+- Use an owned `httpx.AsyncClient` with `trust_env=False`, `follow_redirects=False`, `verify=True`, and set the SDK's `max_retries=0`.
+- The installed SDK supports the L6 request fields (`max_tokens`, `store`, `response_format`) without a dependency change.
+- The official OpenAI documentation re-check (last done 2026-09-19) is still to be done in the T3.1 plan.
 
 T3.1 preflight does not install anything. If a compatible approved environment is absent, report that and request setup approval. Current requirements are version ranges, not a lockfile; do not quietly upgrade or claim tests ran against an unspecified SDK. T3.2 may need a transport wrapper but must not introduce a separate infrastructure service.
 

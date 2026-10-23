@@ -310,3 +310,19 @@ The exact rules, including the L4 transcript stripping that matches existing cod
 **Effect.** The orchestrator consumes the T2.1 interface unchanged. The adapter owner should confirm D1/D4 (how a session reports failures and usage) before the T3 rework.
 
 **Update (2026-10-23):** Mani accepted T2.3. The core track T2 is complete locally; T4 waits for T3.
+
+## T3 takeover — 2026-10-23
+
+**Decision.** The lead (Mani) took over T3.1-T3.2 on 2026-10-23 because the adapter owner is unavailable.
+
+**What it means**
+- **Her work is reused with credit.** The draft `f7fde62` on `origin/Sumukhi_First_Multi_Model_Branch` will be brought in by a separately approved cherry-pick that keeps her authorship.
+- **Her branch is untouched.**
+- **The plan still holds.** The shared plan and the adapter-track guardrails stay in force; only the owner changes. T3 and T4 are completed on `Mani's_First_Multi_Model_Branch`.
+
+**Consequence.** There is no independent reviewer for the remaining work. This is a recorded risk, especially for the credential-handling adapter. Mitigations and the M1 review condition are in the delivery plan (Parallel tracks section).
+
+**Not decided here.**
+- Environment setup (install approval).
+- The cherry-pick (Git approval).
+- The T3.1 and T3.2 plans.
