@@ -34,6 +34,12 @@ Assets: provider keys, trusted authorization context, scoped credential referenc
 
 ### Residual risks and boundaries
 
+**Implementation findings (2026-10-23, M1 local evidence; see the delivery plan):**
+
+- **SDK reads at import.** The installed openai 1.109.1 reads `AZURE_OPENAI_AD_TOKEN` (and other module-client settings) into SDK module globals when imported. This package never uses the module-level client, but a live deployment should not set Azure/OpenAI credential variables in this service's environment.
+- **Debug logging disables the provider.** With openai/httpx/httpcore DEBUG logging enabled, every provider session fails closed with `NOT_CONFIGURED` (A3). This is intended; operators need to know it.
+- **Review finding R1 (fixed by F1, 2026-10-23).** Cleanup is now shielded and releases capacity only after the session and lease close. The remaining open review items R5-R9 are low-severity hardening/cleanup.
+
 - A compromised credential-reading service can expose keys in its memory. Request-local handling reduces exposure; it does not guarantee physical zeroization.
 - Backend authentication/storage decisions remain unknown. Do not claim database-only compromise cannot recover keys until B1's actual design proves that.
 - Already-admitted provider operations may finish and incur cost after disablement/cancellation. B4 defines and tests the admission boundary.

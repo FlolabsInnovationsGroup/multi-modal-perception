@@ -23,6 +23,10 @@ destination is blocked before sending -> INTERNAL_ERROR; B4 organization/project
 headers are removed at the transport; B5 the text probe has no system prompt
 and the audio probe uploads ``input.wav``; B6 probe failures are returned as
 ProbeOutcome (rejected only for CREDENTIAL_REJECTED / CAPABILITY_DENIED).
+
+Review fix R2 (F1, approved 2026-10-23): guard outcomes are carried by the
+GuardViolation itself (``kind``) and recovered from the SDK exception's cause
+chain; the transport keeps no per-request outcome state.
 """
 
 from __future__ import annotations
@@ -140,25 +144,46 @@ def _verbose_logging_enabled() -> bool:
 # --- guarded transport (T3.2) -------------------------------------------------
 
 
+GUARD_BLOCKED = "blocked"
+GUARD_RESPONSE_INVALID = "response_invalid"
+_CAUSE_DEPTH = 8
+
+
 class GuardViolation(Exception):
-    """Raised inside the transport; the session reports it through the guard's flags."""
+    """Raised inside the transport; ``kind`` says why. The SDK chains it as the cause."""
+
+    def __init__(self, kind: str) -> None:
+        super().__init__(kind)
+        self.kind = kind
+
+
+def _guard_kind(exc: BaseException) -> Optional[str]:
+    """Find a GuardViolation in the exception's cause/context chain (bounded, cycle-safe)."""
+    seen = set()
+    current: Optional[BaseException] = exc
+    for _ in range(_CAUSE_DEPTH):
+        if current is None or id(current) in seen:
+            return None
+        if isinstance(current, GuardViolation):
+            return current.kind
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return None
 
 
 class _CappedStream(httpx.AsyncByteStream):
     """Counts raw response bytes as they arrive and stops once the cap is exceeded."""
 
-    def __init__(self, inner: httpx.AsyncByteStream, limit: int, guard: "GuardedTransport") -> None:
+    def __init__(self, inner: httpx.AsyncByteStream, limit: int) -> None:
         self._inner = inner
         self._limit = limit
-        self._guard = guard
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         total = 0
         async for chunk in self._inner:
             total += len(chunk)
             if total > self._limit:
-                self._guard.response_invalid = True
-                raise GuardViolation()
+                raise GuardViolation(GUARD_RESPONSE_INVALID)
             yield chunk
 
     async def aclose(self) -> None:
@@ -178,12 +203,6 @@ class GuardedTransport(httpx.AsyncBaseTransport):
         self._port = url.port or _DEFAULT_PORTS.get(url.scheme)
         self._prefix = url.path if url.path.endswith("/") else url.path + "/"
         self._limit = max_response_bytes
-        self.response_invalid = False
-        self.blocked = False
-
-    def reset(self) -> None:
-        self.response_invalid = False
-        self.blocked = False
 
     def _approved(self, url: httpx.URL) -> bool:
         return (
@@ -196,8 +215,7 @@ class GuardedTransport(httpx.AsyncBaseTransport):
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         if not self._approved(request.url):
-            self.blocked = True  # B3: never sent
-            raise GuardViolation()
+            raise GuardViolation(GUARD_BLOCKED)  # B3: never sent
         for name in _STRIPPED_HEADERS:  # B4
             if name in request.headers:
                 del request.headers[name]
@@ -214,12 +232,11 @@ class GuardedTransport(httpx.AsyncBaseTransport):
                 too_long = True
         if encoding not in ("", "identity") or too_long:
             await response.aclose()
-            self.response_invalid = True  # B1/B2: refused before reading the body
-            raise GuardViolation()
+            raise GuardViolation(GUARD_RESPONSE_INVALID)  # B1/B2: refused before reading the body
         return httpx.Response(
             status_code=response.status_code,
             headers=response.headers,
-            stream=_CappedStream(response.stream, self._limit, self),  # type: ignore[arg-type]
+            stream=_CappedStream(response.stream, self._limit),  # type: ignore[arg-type]
             extensions=response.extensions,
             request=request,
         )
@@ -275,9 +292,10 @@ class OpenAISession:
         return self._lease.secret
 
     def _code(self, exc: BaseException) -> ErrorCode:
-        if self._guard.blocked:
+        kind = _guard_kind(exc)
+        if kind == GUARD_BLOCKED:
             return ErrorCode.INTERNAL_ERROR  # B3
-        if self._guard.response_invalid:
+        if kind == GUARD_RESPONSE_INVALID:
             return ErrorCode.PROVIDER_RESPONSE_INVALID  # B1/B2
         return classify_error(exc)
 
@@ -313,7 +331,6 @@ class OpenAISession:
         )
 
     async def _chat(self, target: Target, messages: list, max_tokens: int, temperature: float, timeout: httpx.Timeout) -> object:
-        self._guard.reset()
         return await self._client.chat.completions.create(
             model=target.model,
             messages=messages,
@@ -325,7 +342,6 @@ class OpenAISession:
         )
 
     async def _transcribe(self, target: Target, upload: tuple, timeout: httpx.Timeout) -> object:
-        self._guard.reset()
         return await self._client.audio.transcriptions.create(
             model=target.model,
             file=upload,

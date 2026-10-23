@@ -360,3 +360,74 @@ Evidence is in the delivery plan and acceptance tests (T3.1).
 The rules are recorded in technical design L6 and the evidence in the delivery plan and acceptance tests (T3.2).
 
 **Update (2026-10-23):** Mani accepted T3.2 (no independent reviewer), so T3 is complete. Under the T3 takeover note, T2 and T3 are now combined on one branch; T4.1 needs its own approved plan.
+
+## T4.1 decisions C1-C6 — 2026-10-23
+
+**Decision.** The lead (Mani) approved the T4.1 plan with:
+
+| Decision | Rule |
+| --- | --- |
+| C1 | Untrusted mapping inputs with exact field allowlists |
+| C2 | Parse → bounded verify → defensive re-check → orchestrator, with the deadline counted from handler entry |
+| C3 | Empty audio means no audio |
+| C4 | Lazy legacy projection limited to `result`/`model`/`file_type` |
+| C5 | Handler and wiring are not exported; wiring is the only (lazy) adapter importer |
+| C6 | Only the deny-all and explicit builders exist |
+
+The exact rules are in technical design L7. One accepted T2.1 test scan was narrowed so that `wiring.py` may reference adapters, and a stricter lazy-import test was added. This follows L1's composition rule; it is not a relaxation for other modules.
+
+**Update (2026-10-23):** Mani accepted T4.1 (no independent reviewer). The T4.2 plan is still to be approved.
+
+## T4.2 decisions E1-E5 and AI code review — 2026-10-23
+
+**Decisions.** The lead (Mani) approved T4.2 with:
+
+| Decision | Rule |
+| --- | --- |
+| E1 | Leakage watch via log capture, warnings, the asyncio exception handler and an audit hook that records file writes only while a scenario is active |
+| E2 | Clean-env subprocess import probe; `main.py` is never imported because it calls `load_dotenv()`; routes are checked statically |
+| E3 | Overlap is forced with barriers inside the mock transport |
+| E4 | M1 sign-off only after the lead's review of T4.2, with open items listed |
+| E5 | One AI code review, findings reported without fixes |
+
+**Findings recorded.**
+- The SDK reads several module-client environment variables at import, including the credential-like `AZURE_OPENAI_AD_TOKEN`; none of OpenAI's key/base URL/org/project are read. This is pinned by test and listed as a residual risk.
+- The AI review (high effort, `services/provider_integration`) reported these findings, none fixed:
+
+| # | Severity / angle | Location | Finding |
+| --- | --- | --- | --- |
+| R1 | Correctness (highest) | `orchestrator.py:186-187`, `225-226` | Capacity release runs after `await self._close(stack)` in the same `finally`. A cancellation that arrives during cleanup skips the release, so the shared gate permanently loses a slot; after 8 such events every request returns `CAPACITY_EXCEEDED` |
+| R2 | Altitude | `adapters/openai.py:278` (guard flags) | Guard outcomes are reported through per-session mutable flags, while the SDK already chains the `GuardViolation` as `APIConnectionError.__cause__`. Overlapping requests in one session could misclassify |
+| R3 | Correctness | `errors.py:81` | `ProviderIntegrationError` / `ProviderOperationError` cannot be pickled or copied, because the default `__reduce__` passes the message where an `ErrorCode` is required |
+| R4 | Correctness | `orchestrator.py:231` | A naive injected `utc_now` makes `invoke`/`validate` raise `ValueError` instead of returning a safe result |
+| R5 | Correctness (low) | `adapters/openai.py:267` | httpx timeouts are per phase. Used directly, a session is not bounded to `remaining_seconds`; only the orchestrator's outer deadline bounds the total |
+| R6 | Reuse | `types.py:398`, `orchestrator.py:65`, `adapters/openai.py:80` | The rejection-code set is defined three times |
+| R7 | Reuse | `handler.py:83` | `_utf8_length` duplicates `orchestrator.py:80` |
+| R8 | Reuse | `adapters/openai.py:442` | Positive-number validation re-implements the config helpers |
+| R9 | Efficiency | `adapters/openai.py:386` | The constant silent WAV is regenerated for every audio probe |
+
+**Not decided here (at the time).**
+- Triage and fix plan for R1-R9 (since decided: F1 below).
+- T4.2 acceptance.
+- M1 sign-off.
+- Commit/push of T4.1-T4.2.
+
+## Review fix F1 (R1-R4) — 2026-10-23
+
+**Decision.** The lead (Mani) approved fixing R1-R4 test-first and keeping R5-R9 as recorded follow-ups:
+
+| Finding | Fix |
+| --- | --- |
+| R1 | Shielded cleanup that releases capacity after the session/lease close |
+| R2 | Guard outcome carried by `GuardViolation.kind` and read from the exception cause chain; no transport state |
+| R3 | `__reduce__` on both safe error classes |
+| R4 | Clock validated at construction; bad readings fail safe without substituting another clock |
+
+**Evidence.** Red-then-green, reverse and regression mutants, full suite 194/194 in `.venv`. Details are in the delivery plan and acceptance tests (F1).
+
+**Update (2026-10-23):** Mani accepted T4.2 and F1 (no independent reviewer); committed locally, not pushed.
+
+**Not decided here.**
+- M1 sign-off.
+- Scheduling R5-R9.
+- Push.

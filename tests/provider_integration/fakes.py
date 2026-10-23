@@ -541,6 +541,7 @@ class ScriptedAdapter:
         self.open_error: Optional[BaseException] = None
         self.close_error: Optional[BaseException] = None
         self.close_hang = False
+        self.close_gate: Optional[PauseGate] = None  # pauses session close (cleanup-cancellation tests)
 
     def calls_for(self, operation: str) -> List[Call]:
         return [call for call in self.calls if call.operation == operation]
@@ -561,6 +562,8 @@ class ScriptedAdapter:
             yield ScriptedSession(self, lease, config)
         finally:
             self.sessions_closed += 1
+            if self.close_gate is not None:
+                await self.close_gate.pause()
             if self.close_hang:
                 await asyncio.Event().wait()
             if self.close_error is not None:

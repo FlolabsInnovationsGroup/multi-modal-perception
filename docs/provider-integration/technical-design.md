@@ -201,6 +201,9 @@ Implemented in `services/provider_integration/orchestrator.py`.
 - **D3 (cleanup failure):** a cleanup failure or timeout after a result keeps the result. The error is suppressed and never retained; capacity is released.
 - **D4 (validation outcomes):** a probe raising `CREDENTIAL_REJECTED`/`CAPABILITY_DENIED` is `rejected`; any other failure is `indeterminate`. Local, pre-provider denials are never `rejected`: a local `CAPABILITY_DENIED` is reported as `indeterminate` with reason `ACCESS_DENIED`.
 - **D5 (clocks):** deadlines use the event loop's monotonic clock. `started_at` (loop time at handler entry) lets T4.1 include verification in the budget. Context expiry and `checked_at` use the injected UTC clock.
+- **Review fix F1 (2026-10-23).**
+  - R1: D3's cleanup is now shielded and releases capacity only after the session and lease close, even if the caller is cancelled during cleanup.
+  - R4: the injected clock is validated at construction; a bad reading during a request fails safe (`INTERNAL_ERROR` / `indeterminate`), and `checked_at` then uses the last good reading from the same clock.
 
 **L4 composition**
 - Matches the current `/process` code: the instruction is the stripped text, or `reply to the audio` when there is no text.
@@ -281,7 +284,7 @@ Validation uses exactly one selected capability, never both implicitly. Text pro
 | B5 | The text probe has no system prompt; the audio probe uploads `input.wav` |
 | B6 | Probe failures are returned as `ProbeOutcome`: `rejected` only for `CREDENTIAL_REJECTED` / `CAPABILITY_DENIED` |
 
-The production inner transport is `httpx.AsyncHTTPTransport(verify=True, trust_env=False, retries=0)`, because httpx's transport defaults to `trust_env=True` independently of the client.
+The production inner transport is `httpx.AsyncHTTPTransport(verify=True, trust_env=False, retries=0)`, because httpx's transport defaults to `trust_env=True` independently of the client. **Review fix F1 (R2, 2026-10-23):** guard outcomes travel on `GuardViolation.kind` and are recovered from the SDK exception's cause chain; the transport holds no per-request outcome state.
 
 | Provider/transport evidence | Invocation code | Validation outcome |
 | --- | --- | --- |
@@ -323,6 +326,17 @@ Important version boundary: requirements currently permit openai>=1,<2, while cu
 Use standard-library unittest/IsolatedAsyncioTestCase and unittest.mock; use installed transport mocking only if present. Tests deny real socket/network creation and instantiate only explicit synthetic dependencies. No `.env` loading, real credential lookup, GPU tests, downloads or paid calls. Verify import with OPENAI_API_KEY unset in a subprocess whose environment omits secrets; do not print environment values. M1's example is an in-process test harness, not a runnable public demo server.
 
 Unconfigured wiring has deny-all verifier/reader and no enabled provider; attempts fail before secret/provider access. No `mode=fake` request parameter or production env flag selects fakes. Test harness imports fakes from tests only. Legacy `services/openai_service.py`, `api/process.py`, `api/openAI.py` and `main.py` remain unchanged in M1, so existing risks remain explicitly documented and no claim of production protection is made. T5/T6 separately replace/wire the real path after B1-B7 approval and test that no legacy route bypasses it. Rollback disables BYOK; it never sends a BYOK request through the old singleton.
+
+**T4.1 handler and wiring decisions (approved 2026-10-23).**
+
+| Decision | Rule |
+| --- | --- |
+| C1 | `Handler.process`/`validate` take the requested binding and request as untrusted plain mappings with exact fields. Binding: `scope_id, credential_ref, credential_version, credential_source, provider`. Invoke: `text, audio, audio_format, generation_model, transcription_model`. Validate: `operation, model`. String fields must be exact `str`, and enum values must match exactly. Anything else → `BoundaryFailure(INVALID_INPUT)` before the verifier runs. Raw text/audio sizes are checked here, before stripping |
+| C2 | Order: parse → verify bounded by `min(verify_timeout, remaining)` → defensive re-check (same binding, same kind, targets allowed) → orchestrator with `started_at` = handler entry. Any verifier denial, timeout, exception or mismatch → `BoundaryFailure(ACCESS_DENIED)`, with nothing reflected |
+| C3 | Empty audio = no audio (`audio_format`/`transcription_model` ignored), matching `/process`. Audio settings without an `audio` field → `INVALID_INPUT` |
+| C4 | `legacy_success` imports `schemas.PerceptionOutput` lazily and returns only `result`/`model`/`file_type`; anything but a success raises `TypeError` |
+| C5 | The package `__init__` exports neither the handler nor wiring. `wiring.py` is the only core module that references adapters, and only lazily inside `build_handler` (tested) |
+| C6 | `build_unconfigured()` (deny-all verifier/reader, no providers) and `build_handler(verifier, reader, providers, limits)` (OpenAI only; adapter limits from L5; never the test transport) are the only builders. No globals or environment reads |
 
 ### L8 — Review and handoff definition
 

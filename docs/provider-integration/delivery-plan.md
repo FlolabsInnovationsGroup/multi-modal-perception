@@ -6,7 +6,9 @@ Current state (2026-10-23): T1 L1-L8 accepted.
 - **Core track complete and shared:** T2.1-T2.3 accepted by Mani. On origin, T2.1 is `a13d32d` (a rewrite of `8227c8e` with an identical tree) and T2.2-T2.3 is `e240bd2`.
 - **Taken over locally (not pushed):** the T3 takeover, the Python 3.12 environment docs (`9e62cd6`) and the cherry-picked adapter draft (`6050f9b`, author Sukhpreet).
 - **T3 complete:** T3.1 and T3.2 implemented and accepted by Mani on 2026-10-23, committed locally together (not pushed; no independent reviewer).
-- **Still to do:** T4.1, then T4.2.
+- **T4.1 implemented and accepted by Mani on 2026-10-23** (uncommitted; no independent reviewer).
+- **T4.2 and review fix F1 accepted by Mani on 2026-10-23** (no independent reviewer). R1-R4 fixed; full suite **194/194** in `.venv`; R5-R9 are recorded follow-ups. T4.1, T4.2 and F1 are committed locally together (not pushed).
+- **Still to do:** the M1 sign-off decision (not yet given). M2 stays blocked on B1-B7.
 Authority: [feature PRD](requirements.md), [AGENTS](../../AGENTS.md).
 
 ## Verified baseline
@@ -50,7 +52,7 @@ Assign a human owner before starting a task. Role labels below are suggested res
 | T1 | Review scope, L1-L8 local contract, and acceptance cases; lead + backend liaison | Revision 2.1 documents available | L1-L8 accepted 2026-10-23 (Mani, lead); still open: separate TC-table acceptance, named backend contact | Accept/amend each L decision, first-provider sequence and named owners; identify backend contact and live-only blocked decisions |
 | T2 | Synthetic provider-module scaffold and contract tests; integration engineer | T1 approves local scope; task edit plan approved | In progress: T2.1 accepted and shared 2026-10-23; Core track complete: T2.1, T2.2 and T2.3 accepted 2026-10-23 (Mani); T2.2/T2.3 committed locally, not pushed | Fake credential reader and fake provider, safe typed results, denial tests; no external I/O |
 | T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T1 accepted and the T2.1 checkpoint implemented, tested and reviewed; may then run alongside T2.2/T2.3; chosen provider and methods reviewed; dependency action approved if needed | In progress: **taken over by Mani 2026-10-23**; draft cherry-picked as `6050f9b`; Complete: T3.1 and T3.2 accepted 2026-10-23 (Mani; no independent reviewer); committed locally, not pushed | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
-| T4 | Processing-path integration behind a fail-closed boundary; integration engineer + QA | T2 and T3 both pass review and are combined; local handler contract/compatibility assumptions approved in T1; no exposed API change | Not started | Text/audio parity, preserved fields, no shared-key/cache/echo path in new flow, local fail-closed handler and bypass tests; externally reachable integration deferred to T5/T6 |
+| T4 | Processing-path integration behind a fail-closed boundary; integration engineer + QA | T2 and T3 both pass review and are combined; local handler contract/compatibility assumptions approved in T1; no exposed API change | Complete: T4.1, T4.2 and review fix F1 accepted 2026-10-23 (Mani; no independent reviewer); committed locally, not pushed; R5-R9 follow-ups | Text/audio parity, preserved fields, no shared-key/cache/echo path in new flow, local fail-closed handler and bypass tests; externally reachable integration deferred to T5/T6 |
 | T5 | Implement actual backend reader and service authentication; backend liaison + integration engineer | B1-B7 resolved and approved; needed dependencies/access separately approved | Blocked: backend contract missing | Contract tests against approved backend environment; credential scope/version/state and denial evidence |
 | T6 | End-to-end security, regression, limits, and operational checks; QA + backend owner | T4/T5 complete; approved staging-only credential use | Not started | Test plan passes; security findings addressed; enablement/release checklist accepted |
 | T7 | Controlled enablement and handoff; lead + operations owner | T6 evidence accepted; separate deployment approval | Not started | Monitored limited rollout, safe rollback exercise, caller migration and release decision |
@@ -404,6 +406,140 @@ Note: `certifi 2026.10.23` was published the same day it was installed. It is an
 - The models are deprecated upstream (A1).
 - No independent review.
 
+### T4.1 evidence — 2026-10-23 (integration)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Owner / approval | Mani. Edit plan approved by the lead on 2026-10-23 with decisions C1-C6. Reviewer decision: **accepted by Mani on 2026-10-23**; no independent reviewer; the gaps listed below remain open |
+| Scope | New `services/provider_integration/handler.py` (`Handler.process`/`validate`, the parsers, `legacy_success`) and `wiring.py` (`build_unconfigured`, `build_handler`, deny-all verifier/reader). New `tests/provider_integration/test_handler.py`. Core, adapter and legacy files are unchanged (`git diff` empty for `__init__`, types, ports, errors, config, orchestrator, adapters, `services/openai_service.py`, `api/`, `main.py`, `schemas.py`, `requirements.txt`) |
+| Requirements / tests | PI-02, PI-04, PI-06, PI-08, PI-10, PI-12. Local portions of TC-02, TC-10, TC-13, TC-14 |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1, pydantic 2.6.1 (only `legacy_success` needs it) |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **172 discovered / 172 passed / 0 failed / 0 errors / 0 skipped**: contracts 72, admission 15, orchestrator 15, limits 11, validation 8, OpenAI adapter 17, OpenAI transport 13, OpenAI validation 7, handler 14 |
+
+**Test change to an accepted file.** `test_contracts.py` (T2.1) had a scan forbidding any core module from referencing `provider_integration.adapters`. L1 assigns adapter composition to `wiring.py`, so the scan now exempts only `wiring.py` from the adapter tokens; every other token still applies to wiring. A new, stricter `test_wiring_imports_adapters_only_lazily` forbids any module-level adapter import in every core module. Wiring's docstring was reworded so the existing "no fakes reference" guard still applies unchanged.
+
+**Additional checks**
+- **Stability:** 5 repeated full runs, all OK.
+- **Warnings:** `-X dev -W always` reported no warnings.
+- **Defect found and fixed during the work.** `test_parse_failures` showed that `CredentialSource` (a `str` subclass) passed the parser's string check. The parser now requires exact `str` for string fields, as C1 intends.
+- **Test bugs fixed.** A duplicate keyword argument in two parse cases, and a deadline test that reused an already-released gate. Both were fixed in the test only.
+- **Mutation check:** fourteen deliberate defects each made the relevant tests fail:
+  - binding re-check removed
+  - kind re-check removed
+  - unknown fields allowed
+  - verifier errors propagated
+  - `started_at` not passed
+  - failures projectable
+  - empty audio treated as audio
+  - audio settings allowed without audio
+  - raw text measured after stripping
+  - verify timeout removed (the test hangs)
+  - unconfigured verifier allows
+  - wiring reads the environment
+  - eager adapter import in wiring
+  - wiring sets the test transport
+
+**Combined run.** `test_end_to_end_with_real_adapter` drives handler → fake verifier/store → orchestrator → the real `OpenAIAdapter` over `httpx.MockTransport`. It covers text and audio success with legacy projection, a provider 401 → `CREDENTIAL_REJECTED`, and a valid validation probe: 5 requests, all to the configured host with the lease key; no lease or capacity left held.
+
+**Gaps**
+- Leakage (logging/trace/filesystem), full isolation and the import-safety suite are T4.2.
+- No live verifier/reader/route (M2).
+- Existing FastAPI upload routes still read uploads after framework handling; the new module is not connected to them and does not solve spooling (L4).
+
+### T4.2 evidence — 2026-10-23 (integration, M1 regression)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Owner / approval | Mani. Edit plan approved by the lead on 2026-10-23 with decisions E1-E5. Reviewer decision: **accepted by Mani on 2026-10-23**; no independent reviewer; findings R1-R4 fixed by F1 |
+| Scope | New `tests/provider_integration/test_isolation.py` (3), `test_leakage.py` (6), `test_import_safety.py` (4). **No production code changed** (`git diff` empty for every file under `services/`, plus `api/`, `main.py`, `schemas.py`, `requirements.txt`) |
+| Requirements / tests | PI-02, PI-06, PI-08, PI-09, PI-12. TC-03, TC-08 and TC-14 local portions in full, plus the final regression over all local TC rows |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1, pydantic 2.6.1. This settles the 3.11/3.12 re-run condition for the whole suite |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **185 discovered / 185 passed / 0 failed / 0 errors / 0 skipped**: contracts 72, admission 15, orchestrator 15, limits 11, validation 8, OpenAI adapter 17, OpenAI transport 13, OpenAI validation 7, handler 14, isolation 3, leakage 6, import safety 4 |
+
+**Additional checks**
+- **Stability:** 5 repeated full runs, all OK.
+- **Warnings:** `-X dev -W always` reported no warnings. The leakage positive control's planted warning is excluded from that scan.
+- **Positive control:** `test_watch_detects_leaks` proves that the log, warning, asyncio-handler and file-write channels each report a planted canary.
+
+**Finding recorded during the work.** The installed SDK reads `OPENAI_LOG`, `OPENAI_API_TYPE`, `OPENAI_API_VERSION`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_AD_TOKEN` when imported, for its module-level client, which this package never uses. No `OPENAI_API_KEY`/base URL/org/project/webhook/`AZURE_OPENAI_API_KEY` read occurs at import. `test_import_safety.py` pins this exact set. The AD-token read is listed as a residual risk in security-and-operations.
+
+**Mutation check:** 7 of 8 deliberate T4.2 defects were detected.
+- Detected:
+  - prompt logged by the orchestrator
+  - SDK exception logged by the adapter
+  - debug file written
+  - transcript appended to the result
+  - environment key read at import
+  - one HTTP client shared across sessions
+  - a legacy route importing the new module
+- **Survived:** replacing the adapter's `from None` with `from exc`. The T2.1 error class already hides causes (defense in depth), so nothing leaked, but no test detects that single-layer change alone.
+
+**AI code review (E5).** The code-review skill ran at high effort over `services/provider_integration`. Findings were **reported only; none fixed** (each fix needs separate approval):
+
+| # | Severity / angle | Location | Finding |
+| --- | --- | --- | --- |
+| R1 | Correctness (highest) | `orchestrator.py:186-187`, `225-226` | Capacity release runs after `await self._close(stack)` in the same `finally`. A cancellation that arrives during cleanup skips the release, so the shared gate permanently loses a slot; after 8 such events every request returns `CAPACITY_EXCEEDED` |
+| R2 | Altitude | `adapters/openai.py:278` (guard flags) | Guard outcomes are reported through per-session mutable flags, while the SDK already chains the `GuardViolation` as `APIConnectionError.__cause__`. Overlapping requests in one session could misclassify |
+| R3 | Correctness | `errors.py:81` | `ProviderIntegrationError` / `ProviderOperationError` cannot be pickled or copied, because the default `__reduce__` passes the message where an `ErrorCode` is required |
+| R4 | Correctness | `orchestrator.py:231` | A naive injected `utc_now` makes `invoke`/`validate` raise `ValueError` instead of returning a safe result |
+| R5 | Correctness (low) | `adapters/openai.py:267` | httpx timeouts are per phase. Used directly, a session is not bounded to `remaining_seconds`; only the orchestrator's outer deadline bounds the total |
+| R6 | Reuse | `types.py:398`, `orchestrator.py:65`, `adapters/openai.py:80` | The rejection-code set is defined three times |
+| R7 | Reuse | `handler.py:83` | `_utf8_length` duplicates `orchestrator.py:80` |
+| R8 | Reuse | `adapters/openai.py:442` | Positive-number validation re-implements the config helpers |
+| R9 | Efficiency | `adapters/openai.py:386` | The constant silent WAV is regenerated for every audio probe |
+
+**Gaps:**
+- R1-R9 are untriaged.
+- No independent human review.
+- No live evidence (M2).
+
+### Review fix F1 evidence — 2026-10-23 (findings R1-R4)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Owner / approval | Mani. Fix plan approved by the lead on 2026-10-23 (shielded cleanup, cause-chain guard classification, picklable errors, clock validation). Reviewer decision: **accepted by Mani on 2026-10-23**; no independent reviewer |
+| Scope | `orchestrator.py` (R1, R4), `errors.py` (R3), `adapters/openai.py` (R2), `tests/provider_integration/fakes.py` (`ScriptedAdapter.close_gate`). New tests in `test_orchestrator.py` (6), `test_contracts.py` (1) and `test_openai_transport.py` (2). In `test_openai_transport.py::test_guard_blocks_unapproved_urls_before_sending`, the removed `guard.blocked`/`reset()` checks were replaced by `GuardViolation.kind`. No port, type, route, legacy or dependency changes |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1 |
+
+**Test-first evidence.** The 10 new or updated tests were run on the unfixed code first: **10 run, 15 failures, 8 errors**, each for the expected reason:
+
+| Finding | What the unfixed code did |
+| --- | --- |
+| R1 | Capacity never released ("condition not reached" ×3); after 8 cancellations a normal request was refused |
+| R2 | The concurrent test reproduced the cross-request misclassification: a connection error was reported as `PROVIDER_RESPONSE_INVALID`; the flags existed; `GuardViolation` had no `kind` |
+| R3 | `TypeError: code must be an ErrorCode` on unpickle |
+| R4 | No construction-time rejection; a bad clock raised instead of failing safe |
+
+After the fixes, the same 10 passed.
+
+**Full suite**
+- Command: `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v`
+- Result: **194 discovered / 194 passed / 0 failed / 0 errors / 0 skipped**: contracts 73, admission 15, orchestrator 21, limits 11, validation 8, OpenAI adapter 17, OpenAI transport 15, OpenAI validation 7, handler 14, isolation 3, leakage 6, import safety 4.
+- 5 repeated full runs OK; no warnings under `-X dev -W always` (only asyncio's informational slow-callback notices).
+
+**Reverse check and regression**
+- All 6 reverse mutants made their new tests fail again: unshielded cleanup, guard kind ignored, shared last-violation state, no `__reduce__`, clock unchecked at construction, clock readings unchecked.
+- All 8 regression mutants were still detected: capacity never released, lease re-check skipped, input echo, stream cap off, destination guard off, blocked→outage, overflow→outage, error cause exposed.
+
+**What changed**
+
+| Finding | Change |
+| --- | --- |
+| R1 | Cleanup runs in a shielded task (strong reference kept) that closes the session and lease within the cleanup limit and then releases capacity. Caller cancellation still propagates immediately |
+| R2 | `GuardViolation(kind)` is recovered from the SDK exception's cause/context chain (bounded, cycle-safe); the transport keeps no per-request outcome state |
+| R3 | `__reduce__` rebuilds from `code` (and `usage`) only |
+| R4 | `utc_now` must be callable and return aware UTC at construction. A bad reading during a request → `INTERNAL_ERROR` / `indeterminate` before any reader call. A bad reading when stamping a validation result → `indeterminate / INTERNAL_ERROR`, with `checked_at` = the request's last good reading from the same clock |
+
+**Open follow-ups (recorded, not fixed):** R5-R9.
+
 T3.1 preflight does not install anything. If a compatible approved environment is absent, report that and request setup approval. Current requirements are version ranges, not a lockfile; do not quietly upgrade or claim tests ran against an unspecified SDK. T3.2 may need a transport wrapper but must not introduce a separate infrastructure service.
 
 ### T1 review meeting checklist
@@ -416,6 +552,59 @@ T3.1 preflight does not install anything. If a compatible approved environment i
 - [ ] Approve a separate bounded T2.1 implementation plan when ready. No main-branch merge, dependency installation or deployment is implicitly authorized.
 
 After these review decisions, no additional product/architecture invention should be necessary to start T2.1. A discovered contradiction or SDK incompatibility must still be reported instead of hidden.
+
+### M1 handoff package — 2026-10-23
+
+**Status.** The local multimodal module (T2.1-T4.2) is implemented and tested offline (194/194). **M1 sign-off is pending.** It needs:
+- the lead's M1 sign-off decision (T1-T4.2 and F1 are accepted; R5-R9 are recorded low-severity follow-ups);
+- the open T1 items (TC-table acceptance, named backend contact).
+
+There was no independent reviewer. Nothing here is live, backend or production evidence.
+
+**Contract and code**
+
+| Item | Value |
+| --- | --- |
+| Contract version | Revision 2.1, with C1-C3 (coordination), T1 acceptance of L1-L8, T2.1 interface clarifications, the T2.2 reader denial-code mapping, D1-D5 (orchestrator), A1-A6 (adapter, including the A2 amendment to L6), B1-B6 (transport/probes) and C1-C6 (handler/wiring). All are recorded in the technical design and review record |
+| Code checkpoint | `origin/Mani's_First_Multi_Model_Branch` at `23bd8b5` (T2.1-T3.2). T4.1 (`handler.py`, `wiring.py`, `test_handler.py`, scoped `test_contracts.py` change), T4.2 (three test files) and review fix F1 are committed locally together on 2026-10-23 (not pushed) |
+| Entry points (in-process only) | `wiring.build_unconfigured()` (deny-all default); `wiring.build_handler(verifier=..., reader=..., providers=..., limits=...)`; `Handler.process` / `Handler.validate`; `handler.legacy_success` |
+| Fake conformance tests for a future real reader/verifier | `test_admission.py` (denial matrix, state table, ordering, rotation, stale results, outage) and `test_handler.py::test_untrusted_context` / `test_misbehaving_verifiers_are_denied`. A real reader/verifier should pass equivalent cases |
+| Limit profile | L5 as accepted (`config.LOCAL_LIMIT_PROFILE`): text 64 KiB; prompt and transcript 128 KiB each; audio 10 MiB; output 64 KiB; response body 1 MiB; deadlines 90 s / 20 s; verify and admit 5 s each; calls 30 / 60 / 15 s; connect 5 s; cleanup 2 s; 8 concurrent; zero retries; no redirects |
+| Installed versions | Python 3.12.10, openai 1.109.1, httpx 0.28.1, httpcore 1.0.9, pydantic 2.6.1 (full `pip freeze` in the environment section) |
+
+**Synthetic result shapes (internal, not a wire format; B6 decides HTTP)**
+
+- **Success:** `InvocationResult(provider="openai", model="gpt-4o-mini", file_type=text, outcome=success, result="Synthetic answer", usage=(UsageEntry(generate_text, gpt-4o-mini, input_tokens=10, output_tokens=5, total_tokens=15, provider_request_id="req_chat_1"),))`. Legacy projection: `{"result": "Synthetic answer", "model": "gpt-4o-mini", "file_type": "text"}`.
+- **Provider failure:** `InvocationResult(outcome=error, result=None, error_code=CREDENTIAL_REJECTED, usage=(UsageEntry(generate_text, gpt-4o-mini, provider_request_id="req_err_1"),))`. It cannot be projected.
+- **Boundary failure:** `BoundaryFailure(request_id=<local UUID>, error_code=ACCESS_DENIED, outcome=error, result=None, usage=())`, with no scope, provider or model reflected.
+- **Validation:** `ValidationResult(binding=<exact checked version, e.g. v2>, target=generate_text/gpt-4o-mini, status=valid|rejected|indeterminate, reason_code=..., usage=(...))`. `rejected` only for `CREDENTIAL_REJECTED` / `CAPABILITY_DENIED`.
+
+**Known legacy and residual risks (unchanged by M1)**
+- `/process` and `/openAI` remain unauthenticated and use the shared environment key, the global client, the prompt cache and echo-on-error.
+- Uploads are read after FastAPI multipart handling; spooling is not solved.
+- Raw exception strings are logged.
+- These routes are disconnected from the new module and must not be described as safe.
+- Upstream deprecations: `gpt-4o-mini` shuts down 2027-01-14 and `gpt-4o-mini-transcribe` 2027-02-26 (A1).
+- The SDK's import-time environment reads are listed under "Implementation findings" in security-and-operations.
+
+**B1-B7 handoff (backend owner and lead)**
+
+| ID | Question | Status | Contact |
+| --- | --- | --- | --- |
+| B1 | Protected storage and retrieval/decryption interface for the real CredentialReader | Unresolved | Not yet assigned |
+| B2 | Source/schema of the trusted binding; customer/platform source support | Unresolved | Not yet assigned |
+| B3 | Service authentication, request integrity, expiry/replay for the real ContextVerifier | Unresolved | Not yet assigned |
+| B4 | Lifecycle states, version IDs, atomic admission/rotation ordering (the fake models one option) | Unresolved | Not yet assigned |
+| B5 | When validation is requested; probe cost/rate policy; result persistence | Unresolved | Not yet assigned |
+| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Unresolved | Not yet assigned |
+| B7 | Live limits, memory-only upload handling before spooling, telemetry/retention | Unresolved | Not yet assigned |
+
+**Next approvals**
+1. Done 2026-10-23: the lead accepted T4.2 and review fix F1 (R1-R4 fixed); R5-R9 remain follow-ups to schedule.
+2. Commit/push of T4.1-T4.2 (Git approval).
+3. M1 sign-off.
+4. Republishing the Notion mirror (external publish).
+5. M2 starts only after B1-B7 are answered and approved.
 
 ### Multimodal handoff, not backend implementation
 

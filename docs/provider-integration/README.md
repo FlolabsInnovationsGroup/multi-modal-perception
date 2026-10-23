@@ -1,6 +1,6 @@
 # Provider Integration — Start Here
 
-V2 / revision 2.1 · 2026-09-19 · **Multimodal implementation specification ready for team review; feature implementation not started.**
+V2 / revision 2.1 · 2026-09-19 · status updated 2026-10-23: **M1 local module implemented (T2.1-T4.2) and tested offline; T1-T4.2 and review fix F1 accepted; M1 sign-off pending; AI review findings R1-R4 fixed, R5-R9 follow-ups; live integration (M2) blocked on B1-B7.**
 
 Publication status: the earlier consolidated package is published under Notion V2. This local revision 2.1 has NOT been republished; Notion currently shows the preceding revision. Publication evidence is recorded in the review record. Feature implementation and Indra's acceptance remain pending.
 
@@ -41,7 +41,7 @@ This Start Here page is the ninth active feature document. Separate files are us
 4. Review its proposed files, assumptions and tests. Approve the bounded task before it edits.
 5. Review the diff and actual test evidence, update task/traceability status, then choose the next task. Dependencies, live keys, external changes, deployment and Git writes have separate approval gates.
 
-At the current state, T1 is the review step. After local scope approval, T2–T4 can deliver **M1: our multimodal module, tested with fakes/mocks, ready for handoff**. T5–T7 deliver **M2: actual backend integration and release** after the required live contract exists. We do not need to build the backend's platform to finish M1, and mocks do not prove M2.
+As of 2026-10-23, T1-T4.1 are accepted and T4.2 awaits review (see the delivery plan's M1 handoff package). T2–T4 deliver **M1: our multimodal module, tested with fakes/mocks, ready for handoff**. T5–T7 deliver **M2: actual backend integration and release** after the required live contract exists. We do not need to build the backend's platform to finish M1, and mocks do not prove M2.
 
 ## What is ready for review now?
 

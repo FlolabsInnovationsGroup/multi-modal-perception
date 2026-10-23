@@ -3,6 +3,7 @@
 Real SDK over httpx.MockTransport behind the adapter's GuardedTransport. Offline.
 """
 
+import asyncio
 import gzip
 import json
 import unittest
@@ -89,17 +90,14 @@ class DestinationAndRedirectTests(TransportTestCase):
         ]
         for url in blocked:
             with self.subTest(url=url):
-                guard.reset()
-                with self.assertRaises(GuardViolation):
+                with self.assertRaises(GuardViolation) as caught:
                     await guard.handle_async_request(httpx.Request("POST", url, headers={"authorization": f"Bearer {KEY_SCOPE_A}"}))
-                self.assertTrue(guard.blocked)
+                self.assertEqual(caught.exception.kind, "blocked")
         self.assertEqual(recorder.requests, [])
         for url in ("https://provider.example.test/v1/chat/completions", "https://provider.example.test:443/v1/audio/transcriptions"):
             with self.subTest(allowed=url):
-                guard.reset()
                 response = await guard.handle_async_request(httpx.Request("POST", url))
                 await response.aread()
-                self.assertFalse(guard.blocked)
         self.assertEqual(len(recorder.requests), 2)
 
     async def test_blocked_request_is_internal_error(self):
@@ -214,6 +212,41 @@ class ResponseCapTests(TransportTestCase):
     async def test_cap_does_not_hide_normal_error_mapping(self):
         await self.assertGenerationFails(Recorder(error_response(429, "rate_limit_exceeded")), ErrorCode.RATE_LIMITED)
 
+
+
+class GuardClassificationTests(TransportTestCase):
+    """R2 (review fix F1): guard outcomes come from each request's own exception, not shared state."""
+
+    async def test_concurrent_requests_classified_independently(self):
+        barrier = asyncio.Barrier(2)
+        tasks = {}
+
+        async def handler(request):
+            await request.aread()
+            first = b"first" in request.content
+            await barrier.wait()  # both requests are inside the transport (any per-request setup done)
+            if first:
+                return streamed(b"x" * 8192, chunk_size=1024)  # over the cap -> response_invalid
+            await asyncio.wait({tasks["first"]})  # fail only after the oversized request has finished
+            raise httpx.ConnectError("synthetic connection failure")
+
+        adapter = OpenAIAdapter(BOTH_TARGETS, connect_timeout_seconds=5, max_response_bytes=4096,
+                                transport=httpx.MockTransport(handler))
+        async with adapter.open_session(make_lease(), make_provider_config()) as session:
+            tasks["first"] = asyncio.create_task(session.generate_text(GENERATE_TARGET, "first", 5.0))
+            tasks["second"] = asyncio.create_task(session.generate_text(GENERATE_TARGET, "second", 5.0))
+            results = await asyncio.gather(tasks["first"], tasks["second"], return_exceptions=True)
+        self.assertIsInstance(results[0], ProviderOperationError)
+        self.assertIsInstance(results[1], ProviderOperationError)
+        self.assertIs(results[0].code, ErrorCode.PROVIDER_RESPONSE_INVALID)
+        self.assertIs(results[1].code, ErrorCode.PROVIDER_UNAVAILABLE)
+
+    def test_guard_keeps_no_outcome_state(self):
+        guard = GuardedTransport(httpx.MockTransport(lambda request: httpx.Response(200)), SYNTHETIC_DESTINATION, 1024)
+        for name in ("blocked", "response_invalid", "reset"):
+            with self.subTest(attribute=name):
+                self.assertFalse(hasattr(guard, name))
+        self.assertEqual(GuardViolation("blocked").kind, "blocked")
 
 if __name__ == "__main__":
     unittest.main()

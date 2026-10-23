@@ -20,6 +20,15 @@ T2.3 decisions (approved 2026-10-23):
   denials in validation are never ``rejected``.
 - D5: deadlines use the event loop's monotonic clock; context expiry and
   ``checked_at`` use the injected UTC clock.
+
+Review fixes (F1, approved 2026-10-23):
+
+- R1: cleanup runs in a shielded task that closes the session and lease
+  (bounded) and then releases capacity, so a cancellation that arrives during
+  cleanup can neither leak capacity nor interrupt the lease release.
+- R4: the injected clock is validated at construction; a bad reading during a
+  request fails safely (INTERNAL_ERROR, or indeterminate for validation) and
+  ``checked_at`` falls back to the last good reading from the same clock.
 """
 
 from __future__ import annotations
@@ -27,7 +36,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import dataclasses
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
 from typing import Awaitable, Callable, FrozenSet, List, Mapping, Optional, TypeVar
 
@@ -71,6 +80,12 @@ _T = TypeVar("_T")
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _aware_utc(value: object) -> Optional[datetime]:
+    if isinstance(value, datetime) and value.tzinfo is not None and value.utcoffset() == timedelta(0):
+        return value
+    return None
 
 
 def _loop_time() -> float:
@@ -137,11 +152,28 @@ class Orchestrator:
         for name, adapter in copied.items():
             if not is_valid_identifier(name) or not isinstance(adapter, ProviderAdapter):
                 raise TypeError("adapters must map provider identifiers to ProviderAdapter")
+        if not callable(utc_now):
+            raise TypeError("utc_now must be callable")
+        first = _aware_utc(utc_now())
+        if first is None:
+            raise ValueError("utc_now must return a timezone-aware UTC datetime")
         self._config = config
         self._reader = reader
         self._adapters: Mapping[str, ProviderAdapter] = MappingProxyType(copied)
         self._utc_now = utc_now
+        self._last_good_now = first
         self._capacity = CapacityGate(config.limits.max_concurrent_operations)
+        self._cleanup_tasks: set = set()
+
+    def _now(self) -> Optional[datetime]:
+        """One validated clock reading, or None if the injected clock misbehaves (R4)."""
+        try:
+            value = _aware_utc(self._utc_now())
+        except Exception:
+            return None
+        if value is not None:
+            self._last_good_now = value
+        return value
 
     @property
     def capacity_in_use(self) -> int:
@@ -167,7 +199,10 @@ class Orchestrator:
         def failure(code: ErrorCode) -> InvocationResult:
             return self._invocation_result(context, request, code=code, usage=usage)
 
-        code = self._precheck(context, request.targets, ContextKind.INVOKE) or self._input_check(request)
+        now = self._now()
+        if now is None:
+            return failure(ErrorCode.INTERNAL_ERROR)
+        code = self._precheck(context, request.targets, ContextKind.INVOKE, now) or self._input_check(request)
         if code is not None:
             return failure(code)
         if not self._capacity.try_acquire():
@@ -183,8 +218,7 @@ class Orchestrator:
                 return failure(ErrorCode.INTERNAL_ERROR)
             return self._invocation_result(context, request, result=text, usage=usage)
         finally:
-            await self._close(stack)
-            self._capacity.release()
+            await self._finalize(stack)
 
     async def validate(
         self,
@@ -201,12 +235,17 @@ class Orchestrator:
         deadline = start + limits.validation_timeout_seconds
         target = request.target
 
+        now = self._now()
+        request_now = now if now is not None else self._last_good_now
+
         def indeterminate(code: ErrorCode, usage: tuple = ()) -> ValidationResult:
             # Local denials are never a definitive provider rejection (D4).
             reason = ErrorCode.ACCESS_DENIED if code in _REJECTION_CODES else code
-            return self._validation_result(context, target, ValidationStatus.INDETERMINATE, reason, usage)
+            return self._validation_result(context, target, ValidationStatus.INDETERMINATE, reason, usage, request_now)
 
-        code = self._precheck(context, frozenset({target}), ContextKind.VALIDATE)
+        if now is None:
+            return indeterminate(ErrorCode.INTERNAL_ERROR)
+        code = self._precheck(context, frozenset({target}), ContextKind.VALIDATE, now)
         if code is not None:
             return indeterminate(code)
         if not self._capacity.try_acquire():
@@ -220,15 +259,16 @@ class Orchestrator:
                 return indeterminate(caught.code)
             except Exception:
                 return indeterminate(ErrorCode.INTERNAL_ERROR)
-            return await self._probe(session, lease, context, target, deadline)
+            return await self._probe(session, lease, context, target, deadline, request_now)
         finally:
-            await self._close(stack)
-            self._capacity.release()
+            await self._finalize(stack)
 
     # -- checks ------------------------------------------------------------------
 
-    def _precheck(self, context: VerifiedContext, targets: FrozenSet[Target], kind: ContextKind) -> Optional[ErrorCode]:
-        if context.kind is not kind or context.is_expired(self._utc_now()):
+    def _precheck(
+        self, context: VerifiedContext, targets: FrozenSet[Target], kind: ContextKind, now: datetime
+    ) -> Optional[ErrorCode]:
+        if context.kind is not kind or context.is_expired(now):
             return ErrorCode.ACCESS_DENIED
         if not targets <= context.allowed_targets:
             return ErrorCode.ACCESS_DENIED
@@ -433,11 +473,14 @@ class Orchestrator:
         context: VerifiedContext,
         target: Target,
         deadline: float,
+        request_now: datetime,
     ) -> ValidationResult:
         limits = self._config.limits
         now = _loop_time()
         if now >= deadline:
-            return self._validation_result(context, target, ValidationStatus.INDETERMINATE, ErrorCode.OPERATION_TIMEOUT, ())
+            return self._validation_result(
+                context, target, ValidationStatus.INDETERMINATE, ErrorCode.OPERATION_TIMEOUT, (), request_now
+            )
         overall_bound = deadline - now <= limits.validation_call_timeout_seconds
         remaining = min(limits.validation_call_timeout_seconds, deadline - now)
         probe_deadline = now + remaining
@@ -447,28 +490,29 @@ class Orchestrator:
                 outcome = await session.validate_access(target, remaining)
         except TimeoutError:
             code = ErrorCode.OPERATION_TIMEOUT if overall_bound else ErrorCode.PROVIDER_TIMEOUT
-            return self._validation_result(context, target, ValidationStatus.INDETERMINATE, code, null_usage)
+            return self._validation_result(context, target, ValidationStatus.INDETERMINATE, code, null_usage, request_now)
         except ProviderOperationError as caught:
             usage = (self._clean_usage(caught.usage, target, lease.secret),)
-            return self._validation_from_code(context, target, caught.code, usage)
+            return self._validation_from_code(context, target, caught.code, usage, request_now)
         except ProviderIntegrationError as caught:
-            return self._validation_from_code(context, target, caught.code, ())
+            return self._validation_from_code(context, target, caught.code, (), request_now)
         except Exception:
             return self._validation_result(
-                context, target, ValidationStatus.INDETERMINATE, ErrorCode.INTERNAL_ERROR, null_usage
+                context, target, ValidationStatus.INDETERMINATE, ErrorCode.INTERNAL_ERROR, null_usage, request_now
             )
         if not isinstance(outcome, ProbeOutcome):
             return self._validation_result(
-                context, target, ValidationStatus.INDETERMINATE, ErrorCode.PROVIDER_RESPONSE_INVALID, null_usage
+                context, target, ValidationStatus.INDETERMINATE, ErrorCode.PROVIDER_RESPONSE_INVALID, null_usage,
+                request_now,
             )
         usage = (self._clean_usage(outcome.usage, target, lease.secret),)
-        return self._validation_result(context, target, outcome.status, outcome.reason_code, usage)
+        return self._validation_result(context, target, outcome.status, outcome.reason_code, usage, request_now)
 
     def _validation_from_code(
-        self, context: VerifiedContext, target: Target, code: ErrorCode, usage: tuple
+        self, context: VerifiedContext, target: Target, code: ErrorCode, usage: tuple, request_now: datetime
     ) -> ValidationResult:
         status = ValidationStatus.REJECTED if code in _REJECTION_CODES else ValidationStatus.INDETERMINATE
-        return self._validation_result(context, target, status, code, usage)
+        return self._validation_result(context, target, status, code, usage, request_now)
 
     # -- results and cleanup -------------------------------------------------------
 
@@ -509,16 +553,33 @@ class Orchestrator:
         status: ValidationStatus,
         reason: Optional[ErrorCode],
         usage: tuple,
+        request_now: datetime,
     ) -> ValidationResult:
+        checked_at = self._now()
+        if checked_at is None:  # R4: never trust an outcome stamped by a broken clock
+            checked_at, status, reason = request_now, ValidationStatus.INDETERMINATE, ErrorCode.INTERNAL_ERROR
         return ValidationResult(
             request_id=context.request_id,
             binding=context.binding,
             target=target,
-            checked_at=self._utc_now(),
+            checked_at=checked_at,
             status=status,
             reason_code=reason,
             usage=usage,
         )
+
+    async def _finalize(self, stack: contextlib.AsyncExitStack) -> None:
+        """R1: shielded cleanup; capacity is released only after the session and lease are closed."""
+        task = asyncio.ensure_future(self._finish(stack))
+        self._cleanup_tasks.add(task)  # strong reference until the cleanup completes
+        task.add_done_callback(self._cleanup_tasks.discard)
+        await asyncio.shield(task)
+
+    async def _finish(self, stack: contextlib.AsyncExitStack) -> None:
+        try:
+            await self._close(stack)
+        finally:
+            self._capacity.release()
 
     async def _close(self, stack: contextlib.AsyncExitStack) -> None:
         """Bounded cleanup (D3): errors and timeouts are suppressed, never retained."""
