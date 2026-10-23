@@ -82,13 +82,15 @@ For each task record Python and installed OpenAI/HTTP-transport versions, exact 
 
 ### M1 sign-off checklist
 
-- [ ] T1 accepted L1-L8 and assigned owners/reviewer; T2.1 through T4.2 evidence accepted.
-- [ ] All fourteen local cases above (TC-04 through both its core and adapter rows) covered by actual tests, with counts and commands; no missing required checks.
-- [ ] No credential cross-use, fallback, persistent content or secret leakage in tested paths; no unresolved critical/high findings.
-- [ ] Adapter exercised via mocked transport, not merely replaced entirely by a fake; installed versions recorded.
-- [ ] New module imports without secrets/network; existing unauthenticated routes not connected to it.
-- [ ] Exact backend handoff B1-B7, legacy risks, provider/live limitations and next approvals documented.
-- [ ] Human reviewer/date/commit or working-tree checkpoint recorded. No inference of live/production readiness.
+Status evaluated 2026-10-23. An item is ticked only where it is actually true.
+
+- [x] T1 accepted L1-L8 and assigned owners/reviewer; T2.1 through T4.2 evidence accepted. *(T1, T2.1-T4.2 and review fix F1 accepted by Mani, who is owner and reviewer; there was no independent reviewer. TC-table acceptance and backend contact are still open from T1.)*
+- [x] All fourteen local cases above (TC-04 through both its core and adapter rows) covered by actual tests, with counts and commands; no missing required checks. *(194 tests in `.venv` after F1, 0 skipped; see the T2.1-T4.2 and F1 evidence.)*
+- [x] No credential cross-use, fallback, persistent content or secret leakage in tested paths; no unresolved critical/high findings. *(Tested paths are clean. R1-R4 were fixed by F1. The remaining R5 is a low-severity contract hardening and R6-R9 are cleanup; no human security review has been done.)*
+- [x] Adapter exercised via mocked transport, not merely replaced entirely by a fake; installed versions recorded. *(Real SDK over `httpx.MockTransport`; versions in the environment section.)*
+- [x] New module imports without secrets/network; existing unauthenticated routes not connected to it. *(`test_import_safety.py`.)*
+- [x] Exact backend handoff B1-B7, legacy risks, provider/live limitations and next approvals documented. *(Delivery plan: M1 handoff package.)*
+- [ ] Human reviewer/date/commit or working-tree checkpoint recorded. No inference of live/production readiness. *(Pending M1 sign-off.)*
 
 ## Documentation-only revision checks
 
@@ -102,17 +104,17 @@ Status: **T2.1, T2.2 and T2.3 local evidence recorded 2026-10-23; adapter, handl
 | Requirement | Plan task | Planned tests | Implementation evidence | Result |
 | --- | --- | --- | --- | --- |
 | PI-01 modular providers | T2, T3 | TC-01 | T2.1: provider config/ports (`test_capability_matrix`). T2.3: unsupported target/adapter capability denied before the reader. T3.1: `test_selected_models` | Partial: T2.1 + T2.3 + T3.1 pass 2026-10-23 (3.12 .venv) |
-| PI-02 correct scoped credential | T2, T4, T5 | TC-02, TC-03, TC-06, TC-13 | T2.1: exact Binding/Target/context types. T2.2: `test_admission.py` denial, verifier, state and isolation tests against the fakes. B1-B4 pending | Partial: T2.1 + T2.2 pass 2026-10-23 (3.13); orchestrator/handler not run |
+| PI-02 correct scoped credential | T2, T4, T5 | TC-02, TC-03, TC-06, TC-13 | T2.1: exact Binding/Target/context types. T2.2: `test_admission.py` denial, verifier, state and isolation tests against the fakes. T4.1: handler verifies before admission, defensive context re-check, untrusted-field rejection (`test_untrusted_context`, `test_misbehaving_verifiers_are_denied`, `test_parse_failures`). B1-B4 pending | Partial: T2.1-T4.1 pass 2026-10-23 (3.12 .venv); live verifier/reader M2 |
 | PI-03 validation | T2, T3, T5 | TC-04, TC-05 | T2.2: reader/backend version tests. T2.3: core validation path (`test_validation.py`). T3.2: adapter probes and outcome matrix (`test_openai_validation.py`); B5 pending | Partial: T2.2 + T2.3 (3.13) + T3.2 (3.12 .venv) pass 2026-10-23 |
-| PI-04 selected model interaction | T3, T4 | TC-01, TC-10 | T2.3: exact configured targets and L4 composition. T3.1: L6 request shapes (`test_generation_request_shape`, `test_transcription_request_shape`); handler projection T4.1; models deprecated upstream (A1) | Partial: T2.3 + T3.1 pass 2026-10-23 (3.12 .venv) |
+| PI-04 selected model interaction | T3, T4 | TC-01, TC-10 | T2.3: exact configured targets and L4 composition. T3.1: L6 request shapes. T4.1: handler projection matrix and legacy `result/model/file_type` (`test_input_projection_matrix`, `test_end_to_end_with_real_adapter`); models deprecated upstream (A1) | Partial: T2.3-T4.1 pass 2026-10-23 (3.12 .venv) |
 | PI-05 credential changes | T2, T5, T6 | TC-05, TC-06, TC-13 | T2.2: rotation, disable and ordering tests against the atomic fake (`test_rotation_denies_old_version`, `test_admission_change_order`); real B4 pending | Partial: simulated only, T2.2 pass 2026-10-23 (3.13) |
-| PI-06 no fallback | T3, T4, T6 | TC-07, TC-14 | T2.3: `test_no_fallback_matrix`. T3.1: no env key/base URL, zero SDK retries (`test_no_environment_inheritance`, `test_single_attempt_without_sdk_retries`). Legacy route echo unchanged and disconnected | Partial: T2.3 + T3.1 pass 2026-10-23 (3.12 .venv) |
+| PI-06 no fallback | T3, T4, T6 | TC-07, TC-14 | T2.3: `test_no_fallback_matrix`. T3.1: no env key/base URL, zero SDK retries. T4.1: deny-all unconfigured wiring; no request field selects fakes (`test_unconfigured_and_reader_outage`, `test_no_bypass`). Legacy route echo unchanged and disconnected | Partial: T2.3-T4.1 pass 2026-10-23 (3.12 .venv); legacy bypass/rollback M2 |
 | PI-07 results/errors/usage | T2, T3, T4 | TC-04, TC-08, TC-11 | T2.1: result/validation invariants, fixed messages, usage/ID sanitizing. T2.3: per-step usage, safe failure codes. T3.1: L6 error matrix with A2 and provider usage mapping (`test_error_mapping_matrix`, `test_transcription_usage_shapes`); B6 wire format pending | Partial: T2.1 + T2.3 + T3.1 pass 2026-10-23 (3.12 .venv) |
-| PI-08 secret protection | T2-T6 | TC-02, TC-08, TC-12 | T2.1: `SecretValue`/`CredentialLease` redaction and serialization refusal, hidden exception chains. T3.1: no key/body in adapter errors; debug logging fails closed; per-lease clients closed; B1/B3 pending | Partial: T2.1 + T3.1 pass 2026-10-23 (3.12 .venv); log/trace/filesystem leakage (T4.2) not run |
-| PI-09 isolation/non-retention | T2, T4, T6 | TC-03, TC-08, TC-12 | T2.2: reader-level isolation. T2.3: per-request session/key/answer, no response cache. T3.1/T3.2: per-lease clients and per-session transport guard; full TC-03 is T4.2; legacy cache/spooling risks remain | Partial: T2.2 + T2.3 + T3.1/T3.2 pass 2026-10-23 |
+| PI-08 secret protection | T2-T6 | TC-02, TC-08, TC-12 | T2.1: `SecretValue`/`CredentialLease` redaction and serialization refusal, hidden exception chains. T3.1: no key/body in adapter errors; debug logging fails closed. T4.2: `test_leakage.py` canaries across all exits (logs, warnings, asyncio handler, file writes, serialization), with positive control; B1/B3 pending | Local pass 2026-10-23 (3.12 .venv); live telemetry/hosting M2 |
+| PI-09 isolation/non-retention | T2, T4, T6 | TC-03, TC-08, TC-12 | T2.2/T2.3 reader- and orchestrator-level isolation. T3.1/T3.2 per-lease clients and per-session guard. T4.2: full-stack `test_isolation.py` (barrier overlap, interleaved invoke/validate, rotation mid-flight) and no file writes in `test_leakage.py`; legacy cache/spooling risks remain | Local pass 2026-10-23 (3.12 .venv); live concurrency M2 |
 | PI-10 approved destinations | T3, T5, T6 | TC-09 | T2.1: https-only destination config. T3.1: configured destination only; env base URL/proxy ignored. T3.2: destination guard, all redirect codes, production transport settings, header hygiene (`test_openai_transport.py`) | Partial: T2.1 + T3.1 + T3.2 pass 2026-10-23 (3.12 .venv); live egress M2 |
 | PI-11 bounded execution | T2-T6 | TC-04, TC-12 | T2.1: accepted L5 profile and config validation. T2.3: byte limits, capacity, deadlines, single attempts, bounded cleanup (`test_limits.py`). T3.2: response-body cap before parsing (`test_response_cap` and related); live B5/B7 pending | Partial: T2.1 + T2.3 + T3.2 pass 2026-10-23 |
-| PI-12 integration/compatibility | T1, T4-T7 | TC-02, TC-10, TC-13, TC-14 | T2.1 import safety; T2.2 reader outage fails closed (`test_outage_and_no_fallback`); B1-B7 and API agreement pending | Partial: T2.1 + T2.2 pass 2026-10-23 (3.13) |
+| PI-12 integration/compatibility | T1, T4-T7 | TC-02, TC-10, TC-13, TC-14 | T2.1 import safety; T2.2 reader outage; T4.1 handler/wiring and legacy projection. T4.2: `test_import_safety.py` (clean-env subprocess, SDK import-time reads pinned, no routes, legacy routes unchanged and disconnected). B1-B7 and API agreement pending | Local pass 2026-10-23 (3.12 .venv); live contract M2 |
 
 ### Evidence format
 
@@ -269,6 +271,88 @@ A successful mock test can satisfy the local portion of a requirement, but it do
 | TC-12 adapter | `test_response_cap` (N-1/N/N+1, declared and streamed), `test_oversized_stream_stops_early`, `test_declared_oversize_is_not_read`, `test_error_bodies_are_capped`, `test_cap_counts_each_request_separately`, `test_compressed_response_refused` |
 
 **Gaps:** combined orchestrator + real adapter (T4); live evidence (M2).
+
+### T4.1 evidence — 2026-10-23 (integration)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T4.1. Mani. Approved plan of 2026-10-23 with C1-C6: `handler.py`, `wiring.py`, `test_handler.py` (plus the scoped `test_contracts.py` scan change described in the delivery plan) |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1, pydantic 2.6.1 |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **172 discovered / 172 passed / 0 failed / 0 errors / 0 skipped** (14 handler + 1 contracts new); 5 repeated full runs OK; 14/14 T4.1 mutations detected |
+| Reviewer decision | Accepted by Mani on 2026-10-23 (no independent reviewer) |
+
+**Coverage (local portions)**
+
+| Case | Tests |
+| --- | --- |
+| TC-02 | `test_untrusted_context` (unknown/unhashable/revoked/expired evidence, each binding field, wrong kind: verifier only, zero reader/provider calls), `test_misbehaving_verifiers_are_denied` (raising, hanging, wrong binding, non-context, wrong kind), `test_parse_failures` (unknown fields such as `authorized`, `base_url`, `api_key`, `mode`, `headers`; zero verifier calls) |
+| TC-10 | `test_input_projection_matrix` (text, audio, combined, whitespace text, empty audio per C3, empty transcript; exactly `result/model/file_type`), `test_audio_requires_both_allowed_targets`, `test_failures_cannot_be_projected`, `test_raw_text_limit_checked_before_strip` |
+| TC-13 | `test_unconfigured_and_reader_outage` (deny-all default with a canary `OPENAI_API_KEY`; outage fails closed for invoke and validate), `test_build_handler_composes_real_adapter_without_test_seam` |
+| TC-14 (local) | `test_no_bypass` (verify always before admit; no env/fakes/FastAPI references; `api/` and `main.py` untouched), `test_wiring_import_does_not_load_sdk`, `test_contracts.py::test_wiring_imports_adapters_only_lazily` |
+| Deadline / combined | `test_deadline_includes_verification`, `test_end_to_end_with_real_adapter` |
+
+**Gaps:** T4.2 leakage/isolation/import-safety suite and M1 sign-off; live route exposure, legacy bypass and rollback are M2.
+
+### T4.2 evidence — 2026-10-23 (M1 regression)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T4.2. Mani. Approved plan of 2026-10-23 with E1-E5: `test_isolation.py`, `test_leakage.py`, `test_import_safety.py`; AI code review; M1 handoff docs |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1, pydantic 2.6.1 |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **185 discovered / 185 passed / 0 failed / 0 errors / 0 skipped**; 5 repeated full runs OK; 7/8 T4.2 mutations detected (the survivor is covered by the T2.1 error-class layer) |
+| Reviewer decision | Accepted by Mani on 2026-10-23 (no independent reviewer); R1-R4 fixed by F1, R5-R9 follow-ups |
+
+**Coverage**
+
+| Case | Tests |
+| --- | --- |
+| TC-03 | `test_isolation.py::test_two_scopes_same_prompt`, `test_interleaved_invoke_and_validate`, `test_rotation_mid_flight` |
+| TC-08 | `test_leakage.py::test_canary_all_exits` (9 scenarios), `test_validation_and_boundary_paths`, `test_cancellation_leaks_nothing`, `test_debug_logging_fails_closed_without_logging_content`, `test_secret_objects_refuse_serialization`, positive control `test_watch_detects_leaks` |
+| TC-14 (local) | `test_import_safety.py::test_no_public_wiring`, `test_import_ignores_credential_environment`, `test_package_defines_no_routes_or_fakes`, `test_legacy_routes_unchanged_and_disconnected` |
+
+**Local acceptance summary (M1).** All fourteen TC rows have local evidence:
+
+| Cases | Where |
+| --- | --- |
+| TC-01, TC-02, TC-08, TC-11, TC-12 | T2.1 |
+| TC-02, TC-03, TC-05, TC-06, TC-13 | T2.2 |
+| TC-03, TC-04 (core), TC-05, TC-07, TC-08, TC-10, TC-11, TC-12 | T2.3 |
+| TC-01, TC-07, TC-09, TC-10, TC-11 | T3.1 |
+| TC-04 (adapter), TC-09, TC-12 | T3.2 |
+| TC-02, TC-10, TC-13, TC-14 | T4.1 |
+| TC-03, TC-08, TC-14 | T4.2 |
+
+Every M2 column in the case table remains not run.
+
+### Review fix F1 evidence — 2026-10-23 (R1-R4)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | F1. Mani. Approved fix plan of 2026-10-23 for AI review findings R1-R4 |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1 |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Red (before fixes) | The 10 new or updated tests: 15 failures + 8 errors, each for the expected reason |
+| Green (after fixes) | **194 discovered / 194 passed / 0 failed / 0 errors / 0 skipped**; 5 repeated runs OK; 6/6 reverse mutants and 8/8 regression mutants detected |
+| Reviewer decision | Accepted by Mani on 2026-10-23 (no independent reviewer) |
+
+**Tests**
+
+| Finding | Tests |
+| --- | --- |
+| R1 | `test_orchestrator.py::CleanupCancellationTests` (cancel during cleanup for invoke and validate, repeated cancellation, capacity not exhausted) |
+| R2 | `test_openai_transport.py::GuardClassificationTests` (concurrent requests classified independently, no outcome state) and the updated `test_guard_blocks_unapproved_urls_before_sending` |
+| R3 | `test_contracts.py::ErrorSerializationTests` |
+| R4 | `test_orchestrator.py::ClockValidationTests` |
+
+R5-R9 are recorded follow-ups (marked skipped in the review findings).
 
 ### Documentation revision evidence
 

@@ -5,6 +5,7 @@ Uses the scripted adapter double only; the real OpenAI adapter is T3.
 
 import asyncio
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from services.provider_integration import (
     AudioFormat,
@@ -19,7 +20,7 @@ from services.provider_integration import (
     Target,
     UsageEntry,
 )
-from services.provider_integration.orchestrator import AUDIO_INSTRUCTION, TRANSCRIPT_SEPARATOR
+from services.provider_integration.orchestrator import AUDIO_INSTRUCTION, TRANSCRIPT_SEPARATOR, Orchestrator
 
 from fakes import (
     BOTH_TARGETS,
@@ -332,6 +333,125 @@ class CleanupTests(OrchestratorTestCase):
             await task
         self.assertEqual(h.adapter.sessions_closed, 1)
         self.assertCleanExit(h)
+
+
+async def wait_until(predicate):
+    for _ in range(20_000):
+        if predicate():
+            return
+        await asyncio.sleep(0)
+    raise AssertionError("condition not reached")
+
+
+class CleanupCancellationTests(OrchestratorTestCase):
+    """R1 (review fix F1): a cancellation during cleanup must not leak capacity or the lease."""
+
+    def start(self, h, operation):
+        if operation == "invoke":
+            return asyncio.create_task(h.orchestrator.invoke(h.context(), h.text_request()))
+        return asyncio.create_task(h.orchestrator.validate(h.context(kind=ContextKind.VALIDATE), h.validation_request()))
+
+    async def test_cancel_during_cleanup_releases_capacity(self):
+        for operation in ("invoke", "validate"):
+            with self.subTest(operation=operation):
+                h = Harness()
+                gate = PauseGate()
+                h.adapter.close_gate = gate
+                task = self.start(h, operation)
+                await gate.entered.wait()  # the provider step finished; session close is in progress
+                task.cancel()
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+                gate.release.set()
+                await wait_until(lambda: h.orchestrator.capacity_in_use == 0 and h.store.in_flight == 0)
+                self.assertEqual(h.adapter.sessions_closed, 1)
+
+    async def test_repeated_cancellation_during_cleanup(self):
+        h = Harness()
+        gate = PauseGate()
+        h.adapter.close_gate = gate
+        task = self.start(h, "invoke")
+        await gate.entered.wait()
+        task.cancel()
+        await asyncio.sleep(0)
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        gate.release.set()
+        await wait_until(lambda: h.orchestrator.capacity_in_use == 0 and h.store.in_flight == 0)
+
+    async def test_capacity_not_exhausted_by_cancellations(self):
+        h = Harness()
+        for _ in range(h.config.limits.max_concurrent_operations):
+            gate = PauseGate()
+            h.adapter.close_gate = gate
+            task = self.start(h, "invoke")
+            await gate.entered.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            gate.release.set()
+            for _ in range(200):
+                await asyncio.sleep(0)
+        h.adapter.close_gate = None
+        result = await h.orchestrator.invoke(h.context(), h.text_request())
+        self.assertIs(result.outcome, Outcome.SUCCESS)
+        self.assertEqual(h.orchestrator.capacity_in_use, 0)
+
+
+class _Clock:
+    """Returns the queued values in order, repeating the last one; exceptions are raised."""
+
+    def __init__(self, values):
+        self._values = list(values)
+
+    def __call__(self):
+        value = self._values.pop(0) if len(self._values) > 1 else self._values[0]
+        if isinstance(value, BaseException):
+            raise value
+        return value
+
+
+class ClockValidationTests(OrchestratorTestCase):
+    """R4 (review fix F1): the injected UTC clock is validated and a bad clock fails safely."""
+
+    def build(self, h, clock):
+        return Orchestrator(config=h.config, reader=h.store, adapters={"openai": h.adapter}, utc_now=clock)
+
+    def test_clock_validated_at_construction(self):
+        h = Harness()
+        for clock, error in (
+            ("not callable", TypeError),
+            (lambda: datetime(2026, 10, 23, 12, 0), ValueError),
+            (lambda: datetime(2026, 10, 23, 12, 0, tzinfo=timezone(timedelta(hours=3))), ValueError),
+            (lambda: "2026-10-23T12:00:00Z", ValueError),
+        ):
+            with self.subTest(clock=repr(clock)[:30]), self.assertRaises(error):
+                self.build(h, clock)
+
+    async def test_clock_failure_is_safe(self):
+        good = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)
+        for bad in (datetime(2026, 10, 23, 12, 0), RuntimeError("clock failure")):
+            with self.subTest(bad=type(bad).__name__):
+                h = Harness()
+                orchestrator = self.build(h, _Clock([good, bad]))
+                result = await orchestrator.invoke(h.context(), h.text_request())
+                self.assertIs(result.error_code, ErrorCode.INTERNAL_ERROR)
+                validation = await orchestrator.validate(h.context(kind=ContextKind.VALIDATE), h.validation_request())
+                self.assertEqual((validation.status.value, validation.reason_code), ("indeterminate", ErrorCode.INTERNAL_ERROR))
+                self.assertEqual(validation.checked_at, good)  # last good reading from the injected clock
+                self.assertEqual((h.store.admit_calls, h.adapter.calls), (0, []))
+                self.assertEqual(orchestrator.capacity_in_use, 0)
+
+    async def test_clock_failure_after_probe(self):
+        h = Harness()
+        construction = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)
+        precheck = construction + timedelta(seconds=1)
+        orchestrator = self.build(h, _Clock([construction, precheck, datetime(2026, 10, 23, 12, 0, 2)]))
+        validation = await orchestrator.validate(h.context(kind=ContextKind.VALIDATE), h.validation_request())
+        self.assertEqual((validation.status.value, validation.reason_code), ("indeterminate", ErrorCode.INTERNAL_ERROR))
+        self.assertEqual(validation.checked_at, precheck)
+        self.assertEqual(len(h.adapter.calls_for("validate_access")), 1)
 
 
 if __name__ == "__main__":

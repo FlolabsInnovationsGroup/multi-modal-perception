@@ -81,6 +81,10 @@ class ProviderIntegrationError(Exception):
         super().__init__(SAFE_MESSAGES[code])
         self.code = code
 
+    def __reduce__(self) -> tuple:
+        # Rebuild from the code only (R3): the fixed message is derived, causes stay hidden.
+        return (type(self), (self.code,))
+
     @property
     def __cause__(self) -> None:
         _BASE_CAUSE.__set__(self, None)
@@ -114,3 +118,6 @@ class ProviderOperationError(ProviderIntegrationError):
             raise TypeError("usage must be a UsageEntry or None")
         super().__init__(code)
         self.usage = usage
+
+    def __reduce__(self) -> tuple:
+        return (type(self), (self.code, self.usage))

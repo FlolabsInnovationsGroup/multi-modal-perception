@@ -8,7 +8,7 @@ The consolidated V2 documentation incorporates Indra Araujo's review. The featur
 
 Start with [AGENTS](AGENTS.md), [CODEX](CODEX.md), the [docs index](docs/provider-integration/README.md), [feature PRD](docs/provider-integration/requirements.md), and [plan](docs/provider-integration/delivery-plan.md). The [Codex kickoff prompt](docs/provider-integration/codex-start-prompt.md) begins with task discovery and approval.
 
-The revised specification is ready for team review. **Feature code is not implemented.** The actual [backend integration contract](docs/provider-integration/technical-design.md) is unresolved. Local mock-based tasks can begin after their review/approval; live credential integration cannot.
+Status 2026-10-23: the local provider-integration module (`services/provider_integration/`, tasks T2.1-T4.2) is implemented and tested offline with fakes and a mocked provider transport. It is **not connected to any route**, and M1 sign-off is pending. The actual [backend integration contract](docs/provider-integration/technical-design.md) (B1-B7) is unresolved, so live credential integration cannot start. Offline tests: `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v`.
 
 Local revision 2.1 now specifies the module architecture, internal types, OpenAI slice, limits, fixtures and acceptance checks. Review L1-L8, then start plan card T2.1 after approval. The earlier Notion mirror has not yet been updated to this revision. This change does not claim the existing routes are safe for BYOK.
 

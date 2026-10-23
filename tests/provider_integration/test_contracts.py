@@ -657,6 +657,31 @@ class ErrorTests(unittest.TestCase):
             ProviderOperationError(ErrorCode.PROVIDER_TIMEOUT, {"audio_seconds": 1.0})  # type: ignore[arg-type]
 
 
+class ErrorSerializationTests(unittest.TestCase):
+    """R3 (review fix F1): safe errors survive pickle/copy with code, usage and fixed message only."""
+
+    def test_errors_round_trip_pickle_and_copy(self):
+        usage = UsageEntry(Operation.TRANSCRIBE_AUDIO, "gpt-4o-mini-transcribe", audio_seconds=1.0)
+        try:
+            try:
+                raise ValueError(f"sdk detail {KEY_CANARY}")
+            except ValueError as inner:
+                raise ProviderOperationError(ErrorCode.PROVIDER_TIMEOUT, usage) from inner
+        except ProviderOperationError as chained:
+            operation_error = chained
+        for original in (ProviderIntegrationError(ErrorCode.RATE_LIMITED), operation_error):
+            pickled = pickle.dumps(original)
+            self.assertNotIn(KEY_CANARY.encode(), pickled)
+            for clone in (pickle.loads(pickled), copy.copy(original), copy.deepcopy(original)):
+                with self.subTest(kind=type(original).__name__):
+                    self.assertIs(type(clone), type(original))
+                    self.assertIs(clone.code, original.code)
+                    self.assertEqual(str(clone), SAFE_MESSAGES[original.code])
+                    self.assertIsNone(clone.__cause__)
+                    if isinstance(original, ProviderOperationError):
+                        self.assertEqual(clone.usage, usage)
+
+
 class LimitProfileTests(unittest.TestCase):
     def test_local_profile_matches_accepted_l5(self):
         expected = dict(
@@ -812,13 +837,28 @@ class ImportSafetyTests(unittest.TestCase):
     def test_package_source_has_no_env_sdk_or_network_use(self):
         """TC-14 (core part): shared modules never read env keys, load dotenv or import SDKs."""
         forbidden = ("os.environ", "getenv", "dotenv", "OPENAI_API_KEY", "import openai", "from openai",
-                     "import httpx", "import requests", "import socket", "fastapi",
-                     "provider_integration.adapters", "from .adapters", "import adapters")
+                     "import httpx", "import requests", "import socket", "fastapi")
+        adapter_tokens = ("provider_integration.adapters", "from .adapters", "import adapters")
         for path in sorted(PACKAGE_DIR.glob("*.py")):
             source = path.read_text(encoding="utf-8")
-            for token in forbidden:
+            # L1: wiring.py is the single composition module allowed to reference adapters
+            # (checked separately below to be lazy); every other core module must not.
+            tokens = forbidden if path.name == "wiring.py" else forbidden + adapter_tokens
+            for token in tokens:
                 with self.subTest(file=path.name, token=token):
                     self.assertNotIn(token, source)
+
+    def test_wiring_imports_adapters_only_lazily(self):
+        """T4.1 (C5/C6): no module-level adapter import anywhere in the core package."""
+        import ast
+
+        for path in sorted(PACKAGE_DIR.glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in tree.body:
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    names = [node.module or ""] if isinstance(node, ast.ImportFrom) else [a.name for a in node.names]
+                    with self.subTest(file=path.name, line=node.lineno):
+                        self.assertFalse(any("adapters" in name for name in names))
 
     def test_import_without_key_or_network(self):
         """Import in a clean subprocess with no OPENAI_API_KEY and sockets disabled."""
