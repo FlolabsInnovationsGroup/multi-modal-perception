@@ -1,7 +1,7 @@
 # Provider Integration Delivery Plan
 
 Revision 2.1, 2026-09-19, with coordination corrections C1-C3 added 2026-10-16. Replaces the old all-platform Phase 0-7 plan. Local design L1-L8 was accepted as written by the lead (Mani) on 2026-10-23; see the review record.
-Current state: T1 L1-L8 accepted; **T2.1 implemented, tested and accepted by Mani on 2026-10-23**, committed locally (not pushed, so the shared checkpoint is not yet shared); T2.2 onward not started.
+Current state: T1 L1-L8 accepted. **T2.1 accepted by Mani on 2026-10-23 and shared**: commit `8227c8e`, pushed to `origin/Mani's_First_Multi_Model_Branch` on 2026-10-23, so the adapter track (T3) is now eligible. **T2.2 implemented and accepted by Mani on 2026-10-23** (uncommitted). **T2.3 implemented and accepted by Mani on 2026-10-23**. T2.2 and T2.3 are committed locally together, not yet pushed. **The core track (T2) is complete**; T4 waits for T3 acceptance and integration.
 Authority: [feature PRD](requirements.md), [AGENTS](../../AGENTS.md).
 
 ## Verified baseline
@@ -41,7 +41,7 @@ Assign a human owner before starting a task. Role labels below are suggested res
 | ID | Deliverable and suggested owner | Entry criteria | Status | Exit evidence |
 | --- | --- | --- | --- | --- |
 | T1 | Review scope, L1-L8 local contract, and acceptance cases; lead + backend liaison | Revision 2.1 documents available | L1-L8 accepted 2026-10-23 (Mani, lead); still open: separate TC-table acceptance, named backend contact | Accept/amend each L decision, first-provider sequence and named owners; identify backend contact and live-only blocked decisions |
-| T2 | Synthetic provider-module scaffold and contract tests; integration engineer | T1 approves local scope; task edit plan approved | In progress: T2.1 accepted 2026-10-23 (Mani); T2.2/T2.3 not started | Fake credential reader and fake provider, safe typed results, denial tests; no external I/O |
+| T2 | Synthetic provider-module scaffold and contract tests; integration engineer | T1 approves local scope; task edit plan approved | In progress: T2.1 accepted and shared 2026-10-23; Core track complete: T2.1, T2.2 and T2.3 accepted 2026-10-23 (Mani); T2.2/T2.3 committed locally, not pushed | Fake credential reader and fake provider, safe typed results, denial tests; no external I/O |
 | T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T1 accepted and the T2.1 checkpoint implemented, tested and reviewed; may then run alongside T2.2/T2.3; chosen provider and methods reviewed; dependency action approved if needed | Not started (pre-checkpoint draft exists; see Parallel tracks) | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
 | T4 | Processing-path integration behind a fail-closed boundary; integration engineer + QA | T2 and T3 both pass review and are combined; local handler contract/compatibility assumptions approved in T1; no exposed API change | Not started | Text/audio parity, preserved fields, no shared-key/cache/echo path in new flow, local fail-closed handler and bypass tests; externally reachable integration deferred to T5/T6 |
 | T5 | Implement actual backend reader and service authentication; backend liaison + integration engineer | B1-B7 resolved and approved; needed dependencies/access separately approved | Blocked: backend contract missing | Contract tests against approved backend environment; credential scope/version/state and denial evidence |
@@ -94,7 +94,7 @@ The old 99.9% availability / 250 ms overhead / 100-concurrency targets and fixed
 
 ## Implementation-sized task cards
 
-Card status: **T2.1 accepted 2026-10-23 by Mani** (evidence below; committed locally, not pushed); all other cards **not started** (T3.1 has only the pre-checkpoint draft described above). Paths below are relative to `services/provider_integration/` and `tests/provider_integration/` unless explicitly stated. Every card needs its own edit-plan approval; accepting T1 is design approval, not unlimited coding authorization. Update status with actual evidence, not the existence of these cards.
+Card status: **T2.1 accepted 2026-10-23 by Mani** (evidence below; shared as `8227c8e`); **T2.2 and T2.3 accepted 2026-10-23 by Mani** (committed locally, not pushed); all other cards **not started** (T3.1 has only the pre-checkpoint draft described above). Paths below are relative to `services/provider_integration/` and `tests/provider_integration/` unless explicitly stated. Every card needs its own edit-plan approval; accepting T1 is design approval, not unlimited coding authorization. Update status with actual evidence, not the existence of these cards.
 
 | Card | Entry / suggested owner | Proposed files and concrete work | Required exit evidence |
 | --- | --- | --- | --- |
@@ -150,6 +150,90 @@ Card status: **T2.1 accepted 2026-10-23 by Mani** (evidence below; committed loc
 - The adapter owner must agree the session/error interface (`StepOutput`, `ProbeOutcome`, `ProviderOperationError`) before relying on it.
 - The checkpoint is not shared: sharing needs a separately approved commit/push.
 - This is local mock-free unit evidence only, not live or production evidence.
+
+### T2.2 evidence — 2026-10-23 (core track)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Owner / approval | Mani (core owner). Edit plan approved by the lead on 2026-10-23, including the reader denial-code mapping recorded in technical design L3. Reviewer decision: **accepted by Mani on 2026-10-23**; the gaps listed below remain open |
+| Scope | Test-only fakes and admission tests. **No production code changed** (`git diff -- services` empty) |
+| Requirements / tests | PI-02, PI-03, PI-05, PI-08, PI-09, PI-12. Reader/verifier-level portions of TC-02, TC-03, TC-05, TC-06 and TC-13 |
+| Environment | Python 3.13.14 (approved exception), standard library only, no installs. `asyncio.Barrier` requires Python 3.11 or later, which the convention already requires |
+| Command | `python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **86 discovered / 86 passed / 0 failed / 0 errors / 0 skipped** (71 T2.1 + 15 T2.2) |
+
+**Files added**
+- `tests/provider_integration/fakes.py`: `FakeClock`, `PauseGate`, `FakeContextVerifier`, `FakeCredentialStore` (atomic reader with test-only `add_pending`/`rotate`/`disable`/`delete` and `backend_accepts`), plus a network guard that allows only loopback.
+- `tests/provider_integration/test_admission.py`
+
+**Additional checks**
+- **Stability:** `test_admission.py` passed 10 of 10 repeated runs. Ordering is fixed with pause gates and barriers, not sleeps.
+- **First-run failures:** the first full run had 2 failures. Both were assertion mistakes in the new tests (they assumed no other lease was held), not defects in the fakes. I fixed the assertions and re-ran.
+- **Mutation check:** ten deliberate defects in the fakes each made `test_admission.py` fail:
+  - pending admitted for invoke
+  - admission without the lock
+  - secret cached per record
+  - provider/source mismatch ignored
+  - lease never released
+  - rotation leaving the old version active
+  - backend accepting stale results
+  - context targets unchecked
+  - expiry unchecked
+  - verifier ignoring the binding
+
+**Gaps and risks**
+- The orchestrator re-check of a tampered reader snapshot, and the "zero provider calls" assertions, are T2.3.
+- Handler-level untrusted-context tests are T4.1.
+- Real backend atomicity is M2 (B4).
+- The fakes simulate the backend contract; they are not backend evidence.
+- Results must be re-run on 3.11/3.12 before M1 sign-off.
+
+### T2.3 evidence — 2026-10-23 (core track)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Owner / approval | Mani (core owner). Edit plan approved by the lead on 2026-10-23, with decisions D1-D5 (recorded in the technical design and review record). Reviewer decision: **accepted by Mani on 2026-10-23**; the gaps listed below remain open |
+| Scope | New production file `services/provider_integration/orchestrator.py`. Test additions to `fakes.py` (`ScriptedAdapter`/`ScriptedSession`, `TamperingReader`, `RaisingReader`, `Harness`, `FAST_LIMITS`). New `test_orchestrator.py`, `test_limits.py`, `test_validation.py`. No other production file changed; no routes, handler or wiring |
+| Requirements / tests | PI-01, PI-03, PI-04, PI-06, PI-07, PI-09, PI-11. Core portions of TC-02, TC-03, TC-04 (core half per C2), TC-05, TC-07, TC-08, TC-10, TC-11, TC-12 |
+| Environment | Python 3.13.14 (approved exception), standard library only, no installs. `asyncio.timeout`/`timeout_at` require Python 3.11 or later, which the convention already requires |
+| Command | `python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **120 discovered / 120 passed / 0 failed / 0 errors / 0 skipped**: `test_contracts` 71, `test_admission` 15, `test_orchestrator` 15, `test_limits` 11, `test_validation` 8 |
+
+**Additional checks**
+- **Stability:** 10 repeated full runs, all OK.
+- **Warnings:** `python -X dev -W always` reported no warnings, un-awaited coroutines or unclosed resources.
+- **First-run failures:** the first full run had 2 failures. Floating-point rounding made the remaining time passed to a step slightly above its call limit. Fixed in the orchestrator by passing `min(call limit, remaining)` and classifying overall-deadline timeouts by which limit was binding. Re-run clean.
+- **Mutation check:** fifteen deliberate orchestrator defects each made the suite fail:
+  - lease re-check skipped
+  - a hidden generation retry
+  - input echoed on failure
+  - capacity never released
+  - capacity unchecked
+  - generation after a failed transcription
+  - empty generation accepted
+  - key-containing output accepted
+  - local denial reported as `rejected`
+  - rate limit treated as a rejection
+  - usage dropped on error
+  - request ID not sanitized
+  - context targets unchecked
+  - text byte limit missing
+  - transcript not stripped
+
+  The first hidden-retry mutation was invalid (it never ran); a corrected version was caught.
+- **Scope:** `git diff -- services main.py api schemas.py requirements.txt minicpm_test_case` is empty for tracked files; `orchestrator.py` is the only new production file.
+
+**Gaps and risks**
+- The real OpenAI adapter and its transport (response byte cap, redirects, TLS) are T3.
+- Handler, wiring, verifier deadline and legacy projection are T4.1.
+- Logging, filesystem leakage and full isolation are T4.2.
+- These are local double-based results, not live evidence.
+- Results must be re-run on 3.11/3.12 before M1 sign-off.
+- The shared interface is unchanged from the `8227c8e` checkpoint. The adapter owner still has to confirm `StepOutput`/`ProbeOutcome`/`ProviderOperationError` and the D1/D4 semantics before building on them.
 
 T3.1 preflight does not install anything. If a compatible approved environment is absent, report that and request setup approval. Current requirements are version ranges, not a lockfile; do not quietly upgrade or claim tests ran against an unspecified SDK. T3.2 may need a transport wrapper but must not introduce a separate infrastructure service.
 
