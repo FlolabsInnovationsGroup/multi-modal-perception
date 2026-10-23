@@ -1,7 +1,12 @@
 # Provider Integration Delivery Plan
 
 Revision 2.1, 2026-09-19, with coordination corrections C1-C3 added 2026-10-16. Replaces the old all-platform Phase 0-7 plan. Local design L1-L8 was accepted as written by the lead (Mani) on 2026-10-23; see the review record.
-Current state: T1 L1-L8 accepted. **T2.1 accepted by Mani on 2026-10-23 and shared**: commit `8227c8e`, pushed to `origin/Mani's_First_Multi_Model_Branch` on 2026-10-23, so the adapter track (T3) is now eligible. **T2.2 implemented and accepted by Mani on 2026-10-23** (uncommitted). **T2.3 implemented and accepted by Mani on 2026-10-23**. T2.2 and T2.3 are committed locally together, not yet pushed. **The core track (T2) is complete**; T4 waits for T3 acceptance and integration.
+Current state (2026-10-23): T1 L1-L8 accepted.
+
+- **Core track complete and shared:** T2.1-T2.3 accepted by Mani. On origin, T2.1 is `a13d32d` (a rewrite of `8227c8e` with an identical tree) and T2.2-T2.3 is `e240bd2`.
+- **Taken over locally (not pushed):** the T3 takeover, the Python 3.12 environment docs (`9e62cd6`) and the cherry-picked adapter draft (`6050f9b`, author Sukhpreet).
+- **T3 complete:** T3.1 and T3.2 implemented and accepted by Mani on 2026-10-23, committed locally together (not pushed; no independent reviewer).
+- **Still to do:** T4.1, then T4.2.
 Authority: [feature PRD](requirements.md), [AGENTS](../../AGENTS.md).
 
 ## Verified baseline
@@ -44,7 +49,7 @@ Assign a human owner before starting a task. Role labels below are suggested res
 | --- | --- | --- | --- | --- |
 | T1 | Review scope, L1-L8 local contract, and acceptance cases; lead + backend liaison | Revision 2.1 documents available | L1-L8 accepted 2026-10-23 (Mani, lead); still open: separate TC-table acceptance, named backend contact | Accept/amend each L decision, first-provider sequence and named owners; identify backend contact and live-only blocked decisions |
 | T2 | Synthetic provider-module scaffold and contract tests; integration engineer | T1 approves local scope; task edit plan approved | In progress: T2.1 accepted and shared 2026-10-23; Core track complete: T2.1, T2.2 and T2.3 accepted 2026-10-23 (Mani); T2.2/T2.3 committed locally, not pushed | Fake credential reader and fake provider, safe typed results, denial tests; no external I/O |
-| T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T1 accepted and the T2.1 checkpoint implemented, tested and reviewed; may then run alongside T2.2/T2.3; chosen provider and methods reviewed; dependency action approved if needed | Not started; **taken over by Mani 2026-10-23** (pre-checkpoint draft `f7fde62` to be reused; see Parallel tracks) | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
+| T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T1 accepted and the T2.1 checkpoint implemented, tested and reviewed; may then run alongside T2.2/T2.3; chosen provider and methods reviewed; dependency action approved if needed | In progress: **taken over by Mani 2026-10-23**; draft cherry-picked as `6050f9b`; Complete: T3.1 and T3.2 accepted 2026-10-23 (Mani; no independent reviewer); committed locally, not pushed | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
 | T4 | Processing-path integration behind a fail-closed boundary; integration engineer + QA | T2 and T3 both pass review and are combined; local handler contract/compatibility assumptions approved in T1; no exposed API change | Not started | Text/audio parity, preserved fields, no shared-key/cache/echo path in new flow, local fail-closed handler and bypass tests; externally reachable integration deferred to T5/T6 |
 | T5 | Implement actual backend reader and service authentication; backend liaison + integration engineer | B1-B7 resolved and approved; needed dependencies/access separately approved | Blocked: backend contract missing | Contract tests against approved backend environment; credential scope/version/state and denial evidence |
 | T6 | End-to-end security, regression, limits, and operational checks; QA + backend owner | T4/T5 complete; approved staging-only credential use | Not started | Test plan passes; security findings addressed; enablement/release checklist accepted |
@@ -295,6 +300,109 @@ Note: `certifi 2026.10.23` was published the same day it was installed. It is an
 - Use an owned `httpx.AsyncClient` with `trust_env=False`, `follow_redirects=False`, `verify=True`, and set the SDK's `max_retries=0`.
 - The installed SDK supports the L6 request fields (`max_tokens`, `store`, `response_format`) without a dependency change.
 - The official OpenAI documentation re-check (last done 2026-09-19) is still to be done in the T3.1 plan.
+
+### T3.1 evidence — 2026-10-23 (adapter track, owner Mani after takeover)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Owner / approval | Mani. Edit plan approved by the lead on 2026-10-23 with decisions A1-A6 (A2: HTTP 403 -> `ACCESS_DENIED` / indeterminate). Reviewer decision: **accepted by Mani on 2026-10-23**; no independent reviewer (see T3 takeover); the gaps listed below remain open |
+| Scope | Rewrote `services/provider_integration/adapters/openai.py` on the shared ports (draft `f7fde62` by Sukhpreet, reused with credit). Replaced `tests/provider_integration/test_openai_adapter.py` (her 4 tests; her status cases are kept in the new matrix). `adapters/__init__.py` unchanged. **No core files changed**; no shared-interface change |
+| Requirements / tests | PI-01, PI-04, PI-06, PI-07, PI-08, PI-10. Adapter portions of TC-01, TC-07, TC-08, TC-10, TC-11 and the environment/redirect core of TC-09 |
+| Environment | `.venv`: Python 3.12.10, openai 1.109.1, httpx 0.28.1 (see the environment section). All network access is denied by the test guard; the SDK talks only to `httpx.MockTransport` |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **137 discovered / 137 passed / 0 failed / 0 errors / 0 skipped**: contracts 71, admission 15, orchestrator 15, limits 11, validation 8, OpenAI adapter 17 |
+
+**Additional checks**
+- **Stability:** 5 repeated full runs, all OK.
+- **Warnings:** `-X dev -W always` reported no warnings, un-awaited coroutines or unclosed resources. asyncio debug mode prints slow-callback notices for the SDK's first call; these are informational.
+- **First-run errors:** 2 errors were in the new tests. Replacing `httpx.AsyncClient` with a mock broke the SDK's `isinstance` check. Fixed by recording through a real `httpx.AsyncClient` subclass. Adapter code was unchanged by the fix.
+- **Mutation check:** fourteen deliberate adapter defects each made `test_openai_adapter.py` fail:
+  - environment key fallback
+  - SDK retries = 2
+  - following redirects
+  - `trust_env` on
+  - inherited organization/project
+  - `store=true`
+  - request ID taken from the body `id`
+  - 403 mapped as a capability rejection (no A2)
+  - timeouts classified after connection errors
+  - debug logging allowed
+  - fixed upload filename
+  - request ID not sanitized
+  - clients never closed
+  - unknown 5xx unmapped
+- **Python versions:** the system Python 3.13 has no `openai`, so the adapter test module cannot be imported there. Use `.venv`.
+
+**What the adapter now does**
+- One `AsyncOpenAI` per lease, with the lease key and `config.destination` passed explicitly.
+- `max_retries=0`, and an owned `httpx.AsyncClient(trust_env=False, follow_redirects=False, verify=True)`.
+- Environment-derived organization/project are cleared (A4).
+- Opening a session fails closed while the openai/httpx/httpcore loggers are at DEBUG (A3).
+- Requests follow L6: the configured system prompt, `max_tokens`, `temperature`, `store=False`, non-streaming; transcription uses `input.<format>` and `response_format=json`.
+- Usage is copied from the reported values (chat tokens; transcription tokens or duration), with `x-request-id` filtered.
+- Errors are classified with SDK exception types plus a bounded code/type. They raise `ProviderOperationError` carrying null usage and the sanitized request ID, and keep no message, body or cause.
+- `validate_access` returns `UNSUPPORTED_OPERATION` until T3.2 (A6).
+
+**Gaps**
+- T3.2: validation probes, the response-byte cap before parsing, redirect/TLS/proxy transport tests, and `test_openai_transport.py` / `test_openai_validation.py`.
+- No combined orchestrator + real adapter run yet (T4).
+- No live API evidence.
+- Models are deprecated upstream (A1, see L6).
+
+### T3.2 evidence — 2026-10-23 (adapter track, owner Mani)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Owner / approval | Mani. Edit plan approved by the lead on 2026-10-23 with decisions B1-B6. Reviewer decision: **accepted by Mani on 2026-10-23**; no independent reviewer; the gaps listed below remain open |
+| Scope | Extended `services/provider_integration/adapters/openai.py` with a per-session `GuardedTransport` and the L6 validation probes. New `test_openai_transport.py` and `test_openai_validation.py`. In `test_openai_adapter.py`, the constructor tests now pass `max_response_bytes`, and the A6 placeholder test is replaced by a probe smoke test. **No core files changed**; no shared-interface change. The adapter constructor now requires `max_response_bytes` (wiring supplies L5 `max_response_body_bytes`) |
+| Requirements / tests | PI-03, PI-08, PI-09, PI-10, PI-11. TC-04 adapter half (C2), TC-09 adapter, TC-12 adapter |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1; network guard active; `httpx.MockTransport` only |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **157 discovered / 157 passed / 0 failed / 0 errors / 0 skipped**: contracts 71, admission 15, orchestrator 15, limits 11, validation 8, OpenAI adapter 17, OpenAI transport 13, OpenAI validation 7 |
+
+**Additional checks**
+- **Stability:** 5 repeated full runs, all OK.
+- **Warnings:** `-X dev -W always` reported no warnings or unclosed resources.
+- **First-run error:** 1 error in a new test fixture. An `httpx.Response` built from gzip bytes is decoded eagerly by httpx. Fixed by streaming the fixture body; adapter code was unchanged by the fix.
+- **Mutation check:** fifteen deliberate T3.2 defects each made the OpenAI test files fail:
+  - stream cap disabled
+  - Content-Length ignored
+  - compressed responses allowed
+  - destination guard off
+  - organization/project headers kept
+  - Accept-Encoding not forced
+  - transport `trust_env` on
+  - probe sends a system prompt
+  - probe `max_tokens` 16
+  - empty probe text treated as valid
+  - 403 probe treated as rejected
+  - SDK retry 1
+  - overflow reported as an outage
+  - a blocked request reported as an outage
+  - probe uses a customer-style filename
+
+**What T3.2 adds**
+- **Guard on every request.** Only requests whose scheme, host, port and path prefix match `config.destination` are sent (B3: otherwise `INTERNAL_ERROR`, nothing sent). Organization/project headers are removed (B4) and `Accept-Encoding: identity` is forced (B2).
+- **Guard on every response.**
+  - A non-identity `Content-Encoding` is refused before reading.
+  - A declared `Content-Length` over the cap is refused before reading.
+  - Otherwise raw bytes are counted while streaming; reading stops once the cap is exceeded (B1: `PROVIDER_RESPONSE_INVALID`). This applies to error bodies too.
+  - The cap is counted per request.
+- **Production transport.** `httpx.AsyncHTTPTransport(verify=True, trust_env=False, retries=0)`; redirects are never followed.
+- **Probes (L6, B5/B6).**
+  - Text probe: user `Reply with OK.`, `max_tokens=8`, `temperature=0`, `store=False`. A non-empty reply is valid.
+  - Audio probe: the in-memory 1 s silent WAV (32,044 bytes) as `input.wav`, `response_format=json`. Any text string, including empty, is valid.
+  - One request per probe. Failures are returned as `ProbeOutcome`: `rejected` only for `CREDENTIAL_REJECTED` / `CAPABILITY_DENIED`, otherwise `indeterminate`.
+
+**Gaps**
+- The real adapter is not yet run under the orchestrator and handler (T4.1/T4.2).
+- No live API, TLS or proxy evidence (M2).
+- The models are deprecated upstream (A1).
+- No independent review.
 
 T3.1 preflight does not install anything. If a compatible approved environment is absent, report that and request setup approval. Current requirements are version ranges, not a lockfile; do not quietly upgrade or claim tests ran against an unspecified SDK. T3.2 may need a transport wrapper but must not introduce a separate infrastructure service.
 
