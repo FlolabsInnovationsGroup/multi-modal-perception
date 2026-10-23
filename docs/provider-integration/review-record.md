@@ -274,3 +274,39 @@ The design also lists the invariants the types now enforce, all derived from acc
 **Effect.** These are the shared-checkpoint contract for the adapter track. The adapter owner has not yet reviewed them. They should be agreed before the T3 rework relies on them (C1); any change needs agreement from both owners.
 
 **Not decided here.** T2.1 review acceptance, sharing the checkpoint (commit/push), Indra's acceptance and backend B1-B7 all remain pending. Implementation evidence is in the delivery plan and acceptance tests.
+
+**Update (2026-10-23):** Mani accepted T2.1, and it was shared as commit `8227c8e` on `origin/Mani's_First_Multi_Model_Branch`.
+
+## T2.2 reader denial-code mapping — 2026-10-23
+
+**Decision.** The lead (Mani) approved the T2.2 plan, including how the fake credential reader maps denials to codes:
+
+| Situation | Code |
+| --- | --- |
+| Missing or inactive record/version, pending for invoke, old version after rotation, store outage | `CREDENTIAL_UNAVAILABLE` |
+| Provider or source mismatch, target outside the context, expired or unverified context | `ACCESS_DENIED` |
+| Target not permitted for the credential | `CAPABILITY_DENIED` |
+
+This is recorded in technical design L3.
+
+**Effect.** It is the conformance expectation for a future real reader. It does not decide the live backend's own codes or behavior (B1/B4/B6).
+
+**Update (2026-10-23):** Mani accepted T2.2 (uncommitted at the time of recording).
+
+## T2.3 orchestrator decisions D1-D5 — 2026-10-23
+
+**Decision.** The lead (Mani) approved the T2.3 plan with decisions D1-D5:
+
+| Decision | Rule |
+| --- | --- |
+| D1 | Usage for attempted steps only |
+| D2 | Timeout code mapping |
+| D3 | A cleanup failure keeps the result |
+| D4 | Only provider-raised `CREDENTIAL_REJECTED`/`CAPABILITY_DENIED` are `rejected`; local denials are `indeterminate` |
+| D5 | Loop-monotonic deadlines plus an injected UTC clock |
+
+The exact rules, including the L4 transcript stripping that matches existing code, are recorded under "T2.3 orchestrator decisions" in the technical design.
+
+**Effect.** The orchestrator consumes the T2.1 interface unchanged. The adapter owner should confirm D1/D4 (how a session reports failures and usage) before the T3 rework.
+
+**Update (2026-10-23):** Mani accepted T2.3. The core track T2 is complete locally; T4 waits for T3.

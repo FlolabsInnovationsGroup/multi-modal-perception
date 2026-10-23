@@ -178,12 +178,57 @@ These fill details that L2 left implicit. The lead approved them in the T2.1 edi
   - **Data-only provider config.** `ProviderConfig` holds an `https` destination without credentials, query or fragment. It is data only; no provider values are built into the core.
   - **Plaintext access.** `SecretValue.reveal_for_session()` is the only plaintext accessor. Only a `ProviderSession` implementation may call it.
 
+#### T2.3 orchestrator decisions (approved 2026-10-23)
+
+Implemented in `services/provider_integration/orchestrator.py`.
+
+**Order of operations**
+1. Checks before any reader call:
+   - context kind, expiry and targets → `ACCESS_DENIED`
+   - provider or adapter missing → `NOT_CONFIGURED`
+   - target not supported by the config and the adapter → `UNSUPPORTED_OPERATION`
+   - text/audio over the byte limits → `INVALID_INPUT`
+2. The shared non-queuing capacity gate → `CAPACITY_EXCEEDED`.
+3. Admission.
+4. Lease re-check → `ACCESS_DENIED` / `CREDENTIAL_UNAVAILABLE` / `CAPABILITY_DENIED`.
+5. One session per request.
+6. Transcription, then generation, or exactly one probe.
+7. Bounded cleanup of session and lease, and capacity release, on every exit. Cancellation propagates after cleanup.
+
+**Decisions D1-D5**
+- **D1 (usage):** a `ProviderOperationError`, a per-step timeout or an unexpected exception is an attempted step and adds a usage entry (null quantities if unreported). A plain `ProviderIntegrationError` from a session adds none. Usage for the wrong operation/model is replaced with null usage, and request IDs containing the key are dropped.
+- **D2 (timeout codes):** per-step timeout → `PROVIDER_TIMEOUT`; overall deadline → `OPERATION_TIMEOUT`; admission timeout or failure → `CREDENTIAL_UNAVAILABLE`; session open timeout → `PROVIDER_UNAVAILABLE`. Each step receives `min(call limit, remaining overall time)`.
+- **D3 (cleanup failure):** a cleanup failure or timeout after a result keeps the result. The error is suppressed and never retained; capacity is released.
+- **D4 (validation outcomes):** a probe raising `CREDENTIAL_REJECTED`/`CAPABILITY_DENIED` is `rejected`; any other failure is `indeterminate`. Local, pre-provider denials are never `rejected`: a local `CAPABILITY_DENIED` is reported as `indeterminate` with reason `ACCESS_DENIED`.
+- **D5 (clocks):** deadlines use the event loop's monotonic clock. `started_at` (loop time at handler entry) lets T4.1 include verification in the budget. Context expiry and `checked_at` use the injected UTC clock.
+
+**L4 composition**
+- Matches the current `/process` code: the instruction is the stripped text, or `reply to the audio` when there is no text.
+- The transcript is stripped (as `services/openai_service.py` does). Both present → `instruction + "\n\nAudio transcript:\n" + transcript`; empty transcript → the instruction alone.
+- Size checks: the transcript is checked before stripping, the prompt after composition, and the output after stripping.
+
 
 Invocation accepts only `active`. Validation accepts `active` or `pending`. `disabled`, `deleted`, `expired`, unknown state, absent record or mismatched binding always deny. A replacement is a separate version; the module never searches for another version.
 
 The fake reader stores synthetic records indexed by scope/ref/version. Under one async lock it checks full binding, context expiry, targets, state and the active-version pointer, then records an admission and returns that exact snapshot. A test-only rotate/disable operation uses the same lock. A request admitted before a change may finish its entire audio+text pipeline; a later admission using an old version fails, rather than silently upgrading. Validation results retain the checked version even if replacement/deletion happens meanwhile. The simulated backend fixture discards stale results; multimodal does not implement backend persistence or activation.
 
 The fake verifier uses explicit test registrations for evidence handles and returns prepared contexts; unknown or expired handles fail. This is a test double, not authentication. Fake keys use only `test-provider-key-...` values; fake transports capture call arguments in test memory, never dump them on assertion failure. Orchestrator checks lease binding/state/targets again to catch a broken reader. Test B4 timing with barriers/events, not sleep-based race guesses. One admission covers one invocation/validation; release on all exits.
+
+**T2.2 reader denial-code mapping (approved with the T2.2 plan on 2026-10-23).** Implemented by `tests/provider_integration/fakes.py`; a real reader should conform:
+
+| Situation | Code |
+| --- | --- |
+| Missing record or version, disabled, deleted, expired, pending for invoke, old version after rotation | `CREDENTIAL_UNAVAILABLE` (does not reveal whether a record exists) |
+| Provider or source mismatch, target outside the context, expired or non-verified context | `ACCESS_DENIED` |
+| Target not permitted for the credential | `CAPABILITY_DENIED` |
+| Store outage | `CREDENTIAL_UNAVAILABLE` |
+
+Fake lifecycle semantics:
+
+- Invocation requires state `active` **and** the current active-version pointer.
+- `rotate` activates a pending version and disables the previous active one.
+- Every admission returns a new `SecretValue` (no caching).
+- The simulated backend's `backend_accepts` refuses a validation result whose exact version is no longer pending/active or whose provider/source differ.
 
 ### L4 — Text/audio compatibility and content handling
 
