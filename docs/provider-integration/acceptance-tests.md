@@ -101,17 +101,17 @@ Status: **T2.1, T2.2 and T2.3 local evidence recorded 2026-10-23; adapter, handl
 
 | Requirement | Plan task | Planned tests | Implementation evidence | Result |
 | --- | --- | --- | --- | --- |
-| PI-01 modular providers | T2, T3 | TC-01 | T2.1: provider config/ports (`test_capability_matrix`). T2.3: unsupported target/adapter capability denied before the reader (`test_denied_before_reader`) | Partial: T2.1 + T2.3 pass 2026-10-23 (3.13); adapter part not run |
+| PI-01 modular providers | T2, T3 | TC-01 | T2.1: provider config/ports (`test_capability_matrix`). T2.3: unsupported target/adapter capability denied before the reader. T3.1: `test_selected_models` | Partial: T2.1 + T2.3 + T3.1 pass 2026-10-23 (3.12 .venv) |
 | PI-02 correct scoped credential | T2, T4, T5 | TC-02, TC-03, TC-06, TC-13 | T2.1: exact Binding/Target/context types. T2.2: `test_admission.py` denial, verifier, state and isolation tests against the fakes. B1-B4 pending | Partial: T2.1 + T2.2 pass 2026-10-23 (3.13); orchestrator/handler not run |
-| PI-03 validation | T2, T3, T5 | TC-04, TC-05 | T2.2: reader/backend version tests. T2.3: core validation path (`test_validation.py`); adapter probes T3.2; B5 pending | Partial: T2.2 + T2.3 pass 2026-10-23 (3.13); adapter half not run |
-| PI-04 selected model interaction | T3, T4 | TC-01, TC-10 | T2.3: exact configured targets and L4 composition (`test_input_composition_matrix`); real adapter T3; handler projection T4.1 | Partial: T2.3 pass 2026-10-23 (3.13) |
+| PI-03 validation | T2, T3, T5 | TC-04, TC-05 | T2.2: reader/backend version tests. T2.3: core validation path (`test_validation.py`). T3.2: adapter probes and outcome matrix (`test_openai_validation.py`); B5 pending | Partial: T2.2 + T2.3 (3.13) + T3.2 (3.12 .venv) pass 2026-10-23 |
+| PI-04 selected model interaction | T3, T4 | TC-01, TC-10 | T2.3: exact configured targets and L4 composition. T3.1: L6 request shapes (`test_generation_request_shape`, `test_transcription_request_shape`); handler projection T4.1; models deprecated upstream (A1) | Partial: T2.3 + T3.1 pass 2026-10-23 (3.12 .venv) |
 | PI-05 credential changes | T2, T5, T6 | TC-05, TC-06, TC-13 | T2.2: rotation, disable and ordering tests against the atomic fake (`test_rotation_denies_old_version`, `test_admission_change_order`); real B4 pending | Partial: simulated only, T2.2 pass 2026-10-23 (3.13) |
-| PI-06 no fallback | T3, T4, T6 | TC-07, TC-14 | T2.3: `test_no_fallback_matrix` (no alternate adapter, no retry, no echo). Legacy route echo unchanged and disconnected | Partial: core only, T2.3 pass 2026-10-23 (3.13) |
-| PI-07 results/errors/usage | T2, T3, T4 | TC-04, TC-08, TC-11 | T2.1: result/validation invariants, fixed messages, usage/ID sanitizing. T2.3: per-step usage, safe failure codes (`test_usage_survives_generation_failure`, `test_usage_is_sanitized`, `test_probe_outcome_matrix`); B6 wire format pending | Partial: T2.1 + T2.3 pass 2026-10-23 (3.13) |
-| PI-08 secret protection | T2-T6 | TC-02, TC-08, TC-12 | T2.1: `SecretValue`/`CredentialLease` redaction and serialization refusal, hidden exception chains (`SecretValueTests`, `CredentialLeaseTests`); B1/B3 pending | Partial: T2.1 pass 2026-10-23 (3.13); log/trace/filesystem leakage not run |
-| PI-09 isolation/non-retention | T2, T4, T6 | TC-03, TC-08, TC-12 | T2.2: reader-level isolation. T2.3: per-request session/key/answer and no response cache (`test_two_scopes_same_prompt_isolated`); full TC-03 is T4.2; legacy cache/spooling risks remain | Partial: T2.2 + T2.3 pass 2026-10-23 (3.13) |
-| PI-10 approved destinations | T3, T5, T6 | TC-09 | Adapter/destination configuration not implemented | Not run |
-| PI-11 bounded execution | T2-T6 | TC-04, TC-12 | T2.1: accepted L5 profile and config validation. T2.3: enforcement of byte limits, capacity, deadlines, single attempts and bounded cleanup (`test_limits.py`); response-body cap T3.2; live B5/B7 pending | Partial: T2.1 + T2.3 pass 2026-10-23 (3.13) |
+| PI-06 no fallback | T3, T4, T6 | TC-07, TC-14 | T2.3: `test_no_fallback_matrix`. T3.1: no env key/base URL, zero SDK retries (`test_no_environment_inheritance`, `test_single_attempt_without_sdk_retries`). Legacy route echo unchanged and disconnected | Partial: T2.3 + T3.1 pass 2026-10-23 (3.12 .venv) |
+| PI-07 results/errors/usage | T2, T3, T4 | TC-04, TC-08, TC-11 | T2.1: result/validation invariants, fixed messages, usage/ID sanitizing. T2.3: per-step usage, safe failure codes. T3.1: L6 error matrix with A2 and provider usage mapping (`test_error_mapping_matrix`, `test_transcription_usage_shapes`); B6 wire format pending | Partial: T2.1 + T2.3 + T3.1 pass 2026-10-23 (3.12 .venv) |
+| PI-08 secret protection | T2-T6 | TC-02, TC-08, TC-12 | T2.1: `SecretValue`/`CredentialLease` redaction and serialization refusal, hidden exception chains. T3.1: no key/body in adapter errors; debug logging fails closed; per-lease clients closed; B1/B3 pending | Partial: T2.1 + T3.1 pass 2026-10-23 (3.12 .venv); log/trace/filesystem leakage (T4.2) not run |
+| PI-09 isolation/non-retention | T2, T4, T6 | TC-03, TC-08, TC-12 | T2.2: reader-level isolation. T2.3: per-request session/key/answer, no response cache. T3.1/T3.2: per-lease clients and per-session transport guard; full TC-03 is T4.2; legacy cache/spooling risks remain | Partial: T2.2 + T2.3 + T3.1/T3.2 pass 2026-10-23 |
+| PI-10 approved destinations | T3, T5, T6 | TC-09 | T2.1: https-only destination config. T3.1: configured destination only; env base URL/proxy ignored. T3.2: destination guard, all redirect codes, production transport settings, header hygiene (`test_openai_transport.py`) | Partial: T2.1 + T3.1 + T3.2 pass 2026-10-23 (3.12 .venv); live egress M2 |
+| PI-11 bounded execution | T2-T6 | TC-04, TC-12 | T2.1: accepted L5 profile and config validation. T2.3: byte limits, capacity, deadlines, single attempts, bounded cleanup (`test_limits.py`). T3.2: response-body cap before parsing (`test_response_cap` and related); live B5/B7 pending | Partial: T2.1 + T2.3 + T3.2 pass 2026-10-23 |
 | PI-12 integration/compatibility | T1, T4-T7 | TC-02, TC-10, TC-13, TC-14 | T2.1 import safety; T2.2 reader outage fails closed (`test_outage_and_no_fallback`); B1-B7 and API agreement pending | Partial: T2.1 + T2.2 pass 2026-10-23 (3.13) |
 
 ### Evidence format
@@ -221,6 +221,54 @@ A successful mock test can satisfy the local portion of a requirement, but it do
 - Handler/wiring (T4.1).
 - Logging/filesystem/full isolation (T4.2).
 - No live evidence.
+
+### T3.1 evidence — 2026-10-23 (adapter track)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T3.1. Mani (after takeover). Approved plan of 2026-10-23 with A1-A6: `adapters/openai.py` rewrite and `test_openai_adapter.py` |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1; real SDK over `httpx.MockTransport` with the network guard |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **137 discovered / 137 passed / 0 failed / 0 errors / 0 skipped** (17 in `test_openai_adapter.py`); 5 repeated full runs OK; 14/14 adapter mutations detected |
+| Reviewer decision | Accepted by Mani on 2026-10-23 (no independent reviewer) |
+
+**Coverage (adapter portions)**
+
+| Case | Tests |
+| --- | --- |
+| TC-01 | `test_selected_models`, `test_constructor_requires_explicit_configuration` |
+| TC-07 | `test_error_mapping_matrix` (every L6 row with A2, including timeouts, connection errors, redirects and malformed success), `test_single_attempt_without_sdk_retries` |
+| TC-08 (adapter) | Key and body canaries absent from errors, usage and tracebacks; `test_debug_logging_fails_closed` |
+| TC-09 (core) | `test_no_environment_inheritance` (env key/base URL/org/project/proxy/TLS canaries; owned client `trust_env=False`, `follow_redirects=False`, `verify=True`); the 302 case is a single request |
+| TC-10 (adapter) | `test_generation_request_shape`, `test_transcription_request_shape` |
+| TC-11 (adapter) | `test_transcription_usage_shapes`, `test_usage_absent_and_request_id_filtering` |
+| Cleanup and isolation | `test_one_client_per_session_and_always_closed` |
+
+**Gaps:** T3.2 probes and the response cap; integration T4; live evidence.
+
+### T3.2 evidence — 2026-10-23 (adapter track)
+
+**Summary**
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T3.2. Mani. Approved plan of 2026-10-23 with B1-B6: guarded transport, probes, `test_openai_transport.py`, `test_openai_validation.py` |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1 |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py" -v` |
+| Result | **157 discovered / 157 passed / 0 failed / 0 errors / 0 skipped** (13 transport + 7 adapter validation new); 5 repeated full runs OK; 15/15 T3.2 mutations detected |
+| Reviewer decision | Accepted by Mani on 2026-10-23 (no independent reviewer) |
+
+**Coverage (adapter portions)**
+
+| Case | Tests |
+| --- | --- |
+| TC-04 adapter (C2) | `test_openai_validation.py::test_probe_and_outcome_matrix` (L6 table with A2 for both probes, one request each), `test_text_probe_request`, `test_audio_probe_request`, `test_probe_success_criteria`, `test_pending_lease_and_no_activation`, `test_oversized_probe_response_is_indeterminate` |
+| TC-09 adapter | `test_openai_transport.py::test_destination_redirect_and_environment` (301/302/307/308, single request), `test_guard_blocks_unapproved_urls_before_sending`, `test_blocked_request_is_internal_error`, `test_production_transport_settings`, `test_header_hygiene`, `test_forced_organization_never_sent_end_to_end` |
+| TC-12 adapter | `test_response_cap` (N-1/N/N+1, declared and streamed), `test_oversized_stream_stops_early`, `test_declared_oversize_is_not_read`, `test_error_bodies_are_capped`, `test_cap_counts_each_request_separately`, `test_compressed_response_refused` |
+
+**Gaps:** combined orchestrator + real adapter (T4); live evidence (M2).
 
 ### Documentation revision evidence
 

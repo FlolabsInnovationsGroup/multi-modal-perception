@@ -326,3 +326,37 @@ The exact rules, including the L4 transcript stripping that matches existing cod
 - Environment setup (install approval).
 - The cherry-pick (Git approval).
 - The T3.1 and T3.2 plans.
+
+## T3.1 decisions A1-A6 — 2026-10-23
+
+**Decision.** The lead (Mani) approved the T3.1 plan with:
+
+| Decision | Rule |
+| --- | --- |
+| A1 | Keep `gpt-4o-mini` / `gpt-4o-mini-transcribe` as configuration only for M1. Record the upstream shutdowns (2027-01-14 / 2027-02-26). Model replacement is a pre-M2 lead decision |
+| A2 | **Amends accepted L6:** HTTP 403 maps to `ACCESS_DENIED` (validation: indeterminate) instead of `CAPABILITY_DENIED` / rejected, because the current guide uses 403 for unsupported regions |
+| A3 | Opening a session fails closed with `NOT_CONFIGURED` while openai/httpx/httpcore DEBUG logging is enabled |
+| A4 | Environment-derived organization/project are cleared after client construction; tests check the headers are absent |
+| A5 | The adapter's `transport` parameter is a test-only seam; wiring never sets it (T4.1 to test) |
+| A6 | `validate_access` stays `UNSUPPORTED_OPERATION` until T3.2 |
+
+Evidence is in the delivery plan and acceptance tests (T3.1).
+
+**Update (2026-10-23):** Mani accepted T3.1 (no independent reviewer). The T3.2 plan is still to be approved.
+
+## T3.2 decisions B1-B6 — 2026-10-23
+
+**Decision.** The lead (Mani) approved the T3.2 plan with B1-B6:
+
+| Decision | Rule |
+| --- | --- |
+| B1 | An oversized response → `PROVIDER_RESPONSE_INVALID` |
+| B2 | Identity encoding forced; compressed responses refused |
+| B3 | A request to an unapproved destination is blocked → `INTERNAL_ERROR` |
+| B4 | Organization/project headers removed at the transport |
+| B5 | Probe request contents (no system prompt; `input.wav`) |
+| B6 | Probe failures returned as `ProbeOutcome` |
+
+The rules are recorded in technical design L6 and the evidence in the delivery plan and acceptance tests (T3.2).
+
+**Update (2026-10-23):** Mani accepted T3.2 (no independent reviewer), so T3 is complete. Under the T3 takeover note, T2 and T3 are now combined on one branch; T4.1 needs its own approved plan.
