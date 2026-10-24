@@ -49,7 +49,7 @@ Assign a human owner before starting a task. Role labels below are suggested res
 
 | ID | Deliverable and suggested owner | Entry criteria | Status | Exit evidence |
 | --- | --- | --- | --- | --- |
-| T1 | Review scope, L1-L8 local contract, and acceptance cases; lead + backend liaison | Revision 2.1 documents available | L1-L8 accepted 2026-10-23 (Mani, lead); still open: separate TC-table acceptance, named backend contact | Accept/amend each L decision, first-provider sequence and named owners; identify backend contact and live-only blocked decisions |
+| T1 | Review scope, L1-L8 local contract, and acceptance cases; lead + backend liaison | Revision 2.1 documents available | L1-L8 accepted 2026-10-23 (Mani, lead); TC expectation tables accepted and backend contact named (Indra Araujo (backend team lead)) by Mani on 2026-10-23 | Accept/amend each L decision, first-provider sequence and named owners; identify backend contact and live-only blocked decisions |
 | T2 | Synthetic provider-module scaffold and contract tests; integration engineer | T1 approves local scope; task edit plan approved | In progress: T2.1 accepted and shared 2026-10-23; Core track complete: T2.1, T2.2 and T2.3 accepted 2026-10-23 (Mani); T2.2/T2.3 committed locally, not pushed | Fake credential reader and fake provider, safe typed results, denial tests; no external I/O |
 | T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T1 accepted and the T2.1 checkpoint implemented, tested and reviewed; may then run alongside T2.2/T2.3; chosen provider and methods reviewed; dependency action approved if needed | In progress: **taken over by Mani 2026-10-23**; draft cherry-picked as `6050f9b`; Complete: T3.1 and T3.2 accepted 2026-10-23 (Mani; no independent reviewer); committed locally, not pushed | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
 | T4 | Processing-path integration behind a fail-closed boundary; integration engineer + QA | T2 and T3 both pass review and are combined; local handler contract/compatibility assumptions approved in T1; no exposed API change | Complete: T4.1, T4.2 and review fix F1 accepted 2026-10-23 (Mani; no independent reviewer); committed locally, not pushed; R5-R9 follow-ups | Text/audio parity, preserved fields, no shared-key/cache/echo path in new flow, local fail-closed handler and bypass tests; externally reachable integration deferred to T5/T6 |
@@ -546,8 +546,8 @@ T3.1 preflight does not install anything. If a compatible approved environment i
 
 - [ ] Confirm PI-01 through PI-12 scope and OpenAI-first slice; future providers are separately selected work.
 - [x] Accept/amend L1-L8 together, including internal fields, limits, probes, no route wiring during M1, and proposed file ownership. (Accepted as written, Mani, 2026-10-23.)
-- [ ] Accept local TC expectations; do not demand live-backend proof for M1 or count fake proof toward M2.
-- [ ] Assign named owner/reviewer for each next card and an integration contact; record unavailable contacts honestly.
+- [x] Accept local TC expectations; do not demand live-backend proof for M1 or count fake proof toward M2. (Accepted by Mani, 2026-10-23.)
+- [x] Assign named owner/reviewer for each next card and an integration contact; record unavailable contacts honestly. (Owner and reviewer: Mani, after the adapter owner became unavailable. Integration/backend contact: Indra Araujo (backend team lead), named 2026-10-23.)
 - [x] Record reviewer/date/revision/conditions in the review record. Leave B1-B7 unresolved unless actual answers and approval exist. (Recorded 2026-10-23; B1-B7 unresolved.)
 - [ ] Approve a separate bounded T2.1 implementation plan when ready. No main-branch merge, dependency installation or deployment is implicitly authorized.
 
@@ -556,8 +556,9 @@ After these review decisions, no additional product/architecture invention shoul
 ### M1 handoff package — 2026-10-23
 
 **Status.** The local multimodal module (T2.1-T4.2) is implemented and tested offline (194/194). **M1 sign-off is pending.** It needs:
-- the lead's M1 sign-off decision (T1-T4.2 and F1 are accepted; R5-R9 are recorded low-severity follow-ups);
-- the open T1 items (TC-table acceptance, named backend contact).
+- the lead's M1 sign-off decision (T1-T4.2 and F1 are accepted; R5-R9 are recorded low-severity follow-ups).
+
+The T1 leftovers were settled on 2026-10-23: TC tables accepted; backend contact Indra Araujo (backend team lead).
 
 There was no independent reviewer. Nothing here is live, backend or production evidence.
 
@@ -591,13 +592,13 @@ There was no independent reviewer. Nothing here is live, backend or production e
 
 | ID | Question | Status | Contact |
 | --- | --- | --- | --- |
-| B1 | Protected storage and retrieval/decryption interface for the real CredentialReader | Unresolved | Not yet assigned |
-| B2 | Source/schema of the trusted binding; customer/platform source support | Unresolved | Not yet assigned |
-| B3 | Service authentication, request integrity, expiry/replay for the real ContextVerifier | Unresolved | Not yet assigned |
-| B4 | Lifecycle states, version IDs, atomic admission/rotation ordering (the fake models one option) | Unresolved | Not yet assigned |
-| B5 | When validation is requested; probe cost/rate policy; result persistence | Unresolved | Not yet assigned |
-| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Unresolved | Not yet assigned |
-| B7 | Live limits, memory-only upload handling before spooling, telemetry/retention | Unresolved | Not yet assigned |
+| B1 | Protected storage and retrieval/decryption interface for the real CredentialReader | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
+| B2 | Source/schema of the trusted binding; customer/platform source support | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
+| B3 | Service authentication, request integrity, expiry/replay for the real ContextVerifier | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
+| B4 | Lifecycle states, version IDs, atomic admission/rotation ordering (the fake models one option) | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
+| B5 | When validation is requested; probe cost/rate policy; result persistence | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
+| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
+| B7 | Live limits, memory-only upload handling before spooling, telemetry/retention | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
 
 **Next approvals**
 1. Done 2026-10-23: the lead accepted T4.2 and review fix F1 (R1-R4 fixed); R5-R9 remain follow-ups to schedule.
