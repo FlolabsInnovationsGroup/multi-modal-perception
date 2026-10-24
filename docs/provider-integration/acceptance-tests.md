@@ -84,7 +84,7 @@ For each task record Python and installed OpenAI/HTTP-transport versions, exact 
 
 Status evaluated 2026-10-23. An item is ticked only where it is actually true.
 
-- [x] T1 accepted L1-L8 and assigned owners/reviewer; T2.1 through T4.2 evidence accepted. *(T1, T2.1-T4.2 and review fix F1 accepted by Mani, who is owner and reviewer; there was no independent reviewer. TC-table acceptance and backend contact are still open from T1.)*
+- [x] T1 accepted L1-L8 and assigned owners/reviewer; T2.1 through T4.2 evidence accepted. *(T1, T2.1-T4.2 and review fix F1 accepted by Mani, who is owner and reviewer; there was no independent reviewer. The T1 leftovers were settled on 2026-10-23: TC tables accepted by Mani; backend contact Indra Araujo (backend team lead).)*
 - [x] All fourteen local cases above (TC-04 through both its core and adapter rows) covered by actual tests, with counts and commands; no missing required checks. *(194 tests in `.venv` after F1, 0 skipped; see the T2.1-T4.2 and F1 evidence.)*
 - [x] No credential cross-use, fallback, persistent content or secret leakage in tested paths; no unresolved critical/high findings. *(Tested paths are clean. R1-R4 were fixed by F1. The remaining R5 is a low-severity contract hardening and R6-R9 are cleanup; no human security review has been done.)*
 - [x] Adapter exercised via mocked transport, not merely replaced entirely by a fake; installed versions recorded. *(Real SDK over `httpx.MockTransport`; versions in the environment section.)*
