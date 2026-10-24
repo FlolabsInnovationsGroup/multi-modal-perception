@@ -203,6 +203,8 @@ Conditions and open items recorded with this acceptance:
   - any B1-B7 answer.
 
   These remain open. They do not block T2.1, whose entry criterion is L1-L8 acceptance.
+
+  **Update (2026-10-23):** Mani accepted the TC expectation tables and named Indra Araujo (backend team lead) as the backend/integration contact. The B1-B7 questions were drafted the same day for Mani to send; no answers have been received yet.
 - **Not Indra's or the backend team's approval.** Indra's acceptance of the rewritten PRD and backend approval of B1-B7 remain pending.
 - T2.1 still needs its own approved edit plan. No Git write, installation or real credential is authorized by this entry.
 

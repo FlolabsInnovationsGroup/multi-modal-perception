@@ -472,7 +472,9 @@ No secret, secret fragment, raw provider body on error, SDK object, authorizatio
 | B6 | Existing consumers; exact route/transport and error status mapping; response compatibility, usage fields, migration and rollback | Exposed API changes / T5-T7; T4 uses reviewed local assumptions only | Unresolved |
 | B7 | Input/upload/concurrency limits; content-spooling and telemetry controls; approved metadata retention and support owner | Integration/release safety | Unresolved |
 
-For each decision record: owner, dated answer, reviewed specification link, approving people, and acceptance tests. No values, secrets, private dumps, or real customer payloads belong here.
+For each decision record: owner, dated answer, reviewed specification link, approving people, and acceptance tests.
+
+Backend contact for B1-B7: Indra Araujo (backend team lead), named by the lead on 2026-10-23. Questions were drafted that day; all seven remain unresolved until dated answers are recorded here. No values, secrets, private dumps, or real customer payloads belong here.
 
 ### Handoff checklist
 
