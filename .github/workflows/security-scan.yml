@@ -1,0 +1,88 @@
+name: security-scan
+
+# Blocks known PolinRider malware patterns (Oct 2026 incident). Read-only: never runs npm or project code.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Flag force pushes
+        if: github.event_name == 'push' && github.event.forced
+        run: |
+          echo "::error title=Force push detected::'${{ github.actor }}' force-pushed to ${{ github.ref_name }}. Force pushes are how PolinRider spreads. Check this branch and tell Mohamed."
+          exit 1
+
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Scan for malware patterns
+        shell: python3 {0}
+        run: |
+          import json, os, re, sys
+          # Split strings so this file never matches its own patterns (or antivirus signatures).
+          J = lambda *parts: ''.join(parts).encode()
+          IOC = [J('eth_getBlock', 'ByNumber'), J('eth_getTransaction', 'Count'), J('X-Payload', '-B64'), J('x-payload', '-b64'),
+                 J("global['", "r']=require"), J('global["', 'r"]=require'), J("global.i", " = '"), J("global.i", "='"), J("global['", "_V']"), J('global["', '_V"]')]
+          SELF = '.github/workflows/security-scan.yml'
+          CFG = re.compile(r'(^|/)((postcss|next|vite|tailwind|eslint|babel|webpack|nuxt|svelte|astro|jest|vitest|prettier)\.config\.(js|cjs|mjs|ts)|\.eslintrc\.(js|cjs))$')
+          FONT = re.compile(r'\.(woff2?|eot|ttf|otf)$', re.I)
+          MAGIC = {'.woff': [b'wOFF'], '.woff2': [b'wOF2'], '.ttf': [b'\x00\x01\x00\x00', b'true', b'OTTO'], '.otf': [b'OTTO', b'\x00\x01\x00\x00']}
+          ART = {'temp_auto_push.bat', 'temp_interactive_push.bat', 'branch_structure.json'}
+          PAD = re.compile(rb'[ \t]{80,}\S')
+          RUNJS = re.compile(r'\bnode\s+(?!-)([\w./-]+\.(?:c|m)?js)\b')
+          problems = []
+          def bad(path, msg): problems.append((path, msg))
+          def suspicious_js(b): return any(i in b for i in IOC) or any(len(l) > 2000 and PAD.search(l) for l in b.split(b'\n'))
+          files = []
+          for dp, dn, fn in os.walk('.'):
+              dn[:] = [d for d in dn if d not in ('.git', 'node_modules')]
+              for f in fn: files.append(os.path.normpath(os.path.join(dp, f)).replace(os.sep, '/'))
+          for p in files:
+              if p == SELF: continue
+              try:
+                  if os.path.getsize(p) > 20_000_000: continue
+                  b = open(p, 'rb').read()
+              except OSError: continue
+              name = os.path.basename(p); ext = os.path.splitext(p)[1].lower()
+              hits = [i.decode() for i in IOC if i in b]
+              if hits: bad(p, 'known malware string: ' + ', '.join(hits))
+              if name in ART: bad(p, 'PolinRider spreader file')
+              if FONT.search(p):
+                  head = b[:2000]
+                  texty = len(head) > 0 and sum(32 <= c < 127 or c in (9, 10, 13) for c in head) / len(head) > 0.95
+                  wrong = (ext in MAGIC and not any(b.startswith(m) for m in MAGIC[ext])) or (ext == '.eot' and b[34:36] != b'LP')
+                  if texty or wrong: bad(p, 'font file is not a real font (fake font payload?)')
+              if CFG.search(p):
+                  for n, l in enumerate(b.split(b'\n'), 1):
+                      if len(l) > 1000 and PAD.search(l): bad(f'{p}:{n}', 'code hidden after a long run of spaces in a config file'); break
+              if p.endswith('.vscode/tasks.json') and b'folderOpen' in b: bad(p, 'VS Code task that runs automatically on folder open')
+              if p.endswith('.vscode/settings.json') and (b'folderOpen' in b or re.search(rb'allowAutomaticTasks"\s*:\s*(true|"on")', b)):
+                  bad(p, 'VS Code settings enable automatic tasks')
+              if name == 'package.json' and '/node_modules/' not in '/' + p:
+                  try: scripts = json.loads(b).get('scripts', {}) or {}
+                  except Exception: scripts = {}
+                  for k, v in scripts.items():
+                      if not isinstance(v, str): continue
+                      if k in ('preinstall', 'install', 'postinstall') and re.search(r'node\s+-e|curl|wget|powershell|base64', v, re.I):
+                          bad(p, f'suspicious install hook "{k}": {v[:100]}')
+                      for js in RUNJS.findall(v):
+                          target = os.path.normpath(os.path.join(os.path.dirname(p), js))
+                          try: tb = open(target, 'rb').read()
+                          except OSError: continue
+                          if suspicious_js(tb): bad(p, f'script "{k}" runs suspicious file {target}')
+          if problems:
+              for path, msg in problems:
+                  f, _, line = path.partition(':')
+                  print(f'::error file={f}' + (f',line={line}' if line else '') + f',title=Possible PolinRider malware::{msg}')
+              print(f'\n{len(problems)} problem(s) found. Do NOT run npm on this code. Tell Mohamed.')
+              sys.exit(1)
+          print(f'OK: {len(files)} files scanned, no malware patterns found.')
