@@ -592,13 +592,13 @@ There was no independent reviewer. Nothing here is live, backend or production e
 
 | ID | Question | Status | Contact |
 | --- | --- | --- | --- |
-| B1 | Protected storage and retrieval/decryption interface for the real CredentialReader | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
-| B2 | Source/schema of the trusted binding; customer/platform source support | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
-| B3 | Service authentication, request integrity, expiry/replay for the real ContextVerifier | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
-| B4 | Lifecycle states, version IDs, atomic admission/rotation ordering (the fake models one option) | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
-| B5 | When validation is requested; probe cost/rate policy; result persistence | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
-| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
-| B7 | Live limits, memory-only upload handling before spooling, telemetry/retention | Unresolved; questions drafted 2026-10-23, not yet sent | Indra Araujo (backend team lead) |
+| B1 | Protected storage and retrieval/decryption interface for the real CredentialReader | Unresolved: first answer received 2026-11-06. No credential store, endpoint, scoping or state signalling exists; backend named this a blocker. See review record | Indra Araujo (backend team lead) |
+| B2 | Source/schema of the trusted binding; customer/platform source support | Unresolved: question 6 answered 2026-11-06 (no binding exists; to be designed; proposed ID format accepted as a starting point). Questions 7-8 not received | Indra Araujo (backend team lead) |
+| B3 | Service authentication, request integrity, expiry/replay for the real ContextVerifier | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
+| B4 | Lifecycle states, version IDs, atomic admission/rotation ordering (the fake models one option) | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
+| B5 | When validation is requested; probe cost/rate policy; result persistence | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
+| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
+| B7 | Live limits, memory-only upload handling before spooling, telemetry/retention | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
 
 **Next approvals**
 1. Done 2026-10-23: the lead accepted T4.2 and review fix F1 (R1-R4 fixed); R5-R9 remain follow-ups to schedule.
@@ -606,6 +606,10 @@ There was no independent reviewer. Nothing here is live, backend or production e
 3. M1 sign-off.
 4. Republishing the Notion mirror (external publish).
 5. M2 starts only after B1-B7 are answered and approved.
+
+### Repository integrity repair — 2026-11-06
+
+The old branch history was altered by force-pushes from other accounts. Work continues on local branch `provider-integration-clean`, which holds the same provider code without the planted files. Commit hashes in earlier evidence are the old ones; the review record maps them to the new ones. The 194-test provider suite passed on the clean branch on 2026-11-06. Pushing it waits for the organization owner to secure repository access.
 
 ### Multimodal handoff, not backend implementation
 

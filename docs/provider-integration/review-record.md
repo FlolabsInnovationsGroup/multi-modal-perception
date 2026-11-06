@@ -433,3 +433,60 @@ The exact rules are in technical design L7. One accepted T2.1 test scan was narr
 - M1 sign-off.
 - Scheduling R5-R9.
 - Push.
+
+## Backend answers received — 2026-11-06 (partial)
+
+**Source.** Text titled "FloBrain Backend — Responses to Mani's Questions (B1–B7)", pasted by Mani on 2026-11-06. The author and date are not stated in the text. It covers B1 and B2 question 6, then stops; B2 questions 7-8, B3-B7 and the model-replacement question were not received.
+
+**Recorded answers (current backend state, as reported; not verified against backend code):**
+
+| Question | Reported answer |
+| --- | --- |
+| B1.1 Storage | Environment variable only (`MULTIMODAL_API_KEY`). No encrypted column, secrets manager or KMS. Known production-hardening gap |
+| B1.2 Direct read or endpoint | Adapter reads the environment variable directly. No credential endpoint exists. The endpoint direction is agreed but must be designed and built by the backend before M2: **backend blocker** |
+| B1.3 Per-request scoping | No. One global platform key, with no scoping or versions. The design does not exist yet |
+| B1.4 Delivery and handling | Sent as `Authorization: Bearer` over plain HTTP to the multimodal service; no mTLS and no handling rules. Reported as a security gap to close with HTTPS before going live |
+| B1.5 Signalling | None. An empty key means the request is sent without the header; no credential states exist. Mapping to "credential unavailable" is accepted as the safe default until signalling is built |
+| B2.6 Identifying the credential | Nothing exists: one global key, with no scope, reference or version IDs. The binding is to be designed as part of M2 planning. The proposed ID format is a reasonable starting point |
+
+**Checked against this repository (`origin/main` at `1d875b8`, read-only).** `main.py` and `api/*` contain no check of any `Authorization` header or `MULTIMODAL_API_KEY`. The service authenticates to OpenAI with `OPENAI_API_KEY` from the ECS task definition.
+
+**Open points to clarify:**
+- B1 was asked about provider keys, but the answer describes `MULTIMODAL_API_KEY`, which reads as a backend-to-multimodal service key. Whether FloBrain stores any customer provider keys today, and who will build that store, remains to be confirmed.
+- If the header is meant to protect the service, the current `main` does not enforce it.
+- An owner and target date are needed for the credential endpoint and binding design.
+
+**Effect.** T5 stays blocked. Nothing in M1 changes: the fail-closed reader and verifier boundaries already assume these mechanisms are absent. No backend mechanism was invented or assumed from these answers.
+
+## Repository integrity incident — 2026-11-06
+
+**Verified.**
+- GitHub's activity log, read on 2026-11-06, shows the accounts `rkazumovi` and `diogosella` force-pushing this branch nine times, from 2026-09-26 to about 2026-10-26, and force-pushing many other branches. No force-push on this branch is listed after the 2026-10-30 cleanup. Commit metadata such as committer names is not evidence of who pushed.
+- The first force-push sequence replaced local commit `2bdc6d2` with `d22a4c4`. That copy added a text file posing as a font, an auto-run `.vscode/tasks.json`, other `.vscode` files, other `public/fonts` files and `.gitignore` changes. Local commit `e797d35` was later replaced with `5192099`, which changed the fake font and dropped the commit message body.
+- The cleanup commit `eb581cd` removed the fake font and the auto-run settings. It left the other planted `.vscode` and `public/fonts` files and the `.gitignore` changes.
+- `origin/main` at `1d875b8` contains none of the identified malicious files.
+- On this PC, the auto-run file was in the working tree from about 2026-10-02 to 2026-10-16. Node.js was not on the PATH when checked on 2026-11-06, and neither VS Code nor Cursor had a workspace record for this folder.
+
+**Inference, not proven.** The pattern matches public descriptions of PolinRider. The two accounts may belong to attackers or to infected developers. The checks above suggest the payload did not run on this PC, but they cannot prove it. Node could have been installed and removed, and newer variants may not match these signatures.
+
+**Repair.** Branch `provider-integration-clean` was built from `origin/main` by replaying the real commits without the planted paths and with `main`'s `.gitignore`. The resulting tree matched `origin/main` merged with the old branch minus the planted paths. Commit hashes changed, so older evidence in these documents cites the old hashes. Merge commits were flattened.
+
+| Old commit | Clean commit | Subject |
+| --- | --- | --- |
+| `2ff9f5e` | `5d970c0` | commit |
+| `211c109` | Not replayed | merge commit, flattened |
+| `d73ab67` | `df44b7e` | yes |
+| `2bdc6d2` | `334769c` | Yes |
+| `c8d7e92` | Not replayed | merge commit, flattened |
+| `6da6900` | Not replayed | merge commit, flattened |
+| `0a30c3c` | Not replayed | merge commit, flattened |
+| `a13d32d (local original 8227c8e)` | `689f9ac` | T2.1: provider-integration types, ports, errors and config |
+| `e240bd2` | `794ef5a` | T2.2-T2.3: admission fakes and provider-integration orchestrator |
+| `9e62cd6` | `6d8575c` | Docs: record T3 takeover and Python 3.12 environment |
+| `6050f9b` | `c78db1e` | T3.1: add OpenAI adapter with mocked tests |
+| `23bd8b5` | `983759a` | T3.1-T3.2: OpenAI adapter on shared ports, guarded transport and probes |
+| `31e0e29` | `d8c9899` | T4.1-T4.2 and review fix F1: handler, wiring, M1 suites and R1-R4 fixes |
+| `5192099 (local original e797d35)` | `522a1c6` | Docs: record TC-table acceptance and backend contact for B1-B7 |
+| `eb581cd` | Not replayed | cleanup commit, not needed |
+
+**Still open.** An organization owner must review the two accounts' access, tokens, keys, apps and webhooks, and block force-pushes. The other branches still need their owners' review. The old branch stays frozen as evidence. Nothing here establishes production readiness, and M1 is not signed off.

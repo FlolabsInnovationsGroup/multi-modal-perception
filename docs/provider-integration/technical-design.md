@@ -464,8 +464,8 @@ No secret, secret fragment, raw provider body on error, SDK object, authorizatio
 
 | ID | Question / required artifact | Blocking point | Status |
 | --- | --- | --- | --- |
-| B1 | Actual protected storage schema/interface; direct scoped DB read or backend-mediated retrieval; encryption/decryption and least-privilege access owner | Real credential-reader implementation | Unresolved |
-| B2 | Source and schema of trusted scope/credential/provider binding; support for customer/platform sources; authorization policy ownership | Live request contract | Unresolved |
+| B1 | Actual protected storage schema/interface; direct scoped DB read or backend-mediated retrieval; encryption/decryption and least-privilege access owner | Real credential-reader implementation | Unresolved: 2026-11-06 answer says nothing exists yet; backend blocker |
+| B2 | Source and schema of trusted scope/credential/provider binding; support for customer/platform sources; authorization policy ownership | Live request contract | Unresolved: 2026-11-06 partial answer; binding does not exist yet |
 | B3 | Service authentication, request integrity, expiry/replay handling, network exposure, secret-free failure responses | Any externally reachable BYOK path | Unresolved |
 | B4 | Lifecycle states, version identifiers, activation ownership, atomic admission/disable/rotation ordering, stale validation result handling | Live lifecycle correctness | Unresolved |
 | B5 | When validation is requested; approved check per operation, rate/cost limits, timeout/retry budget, and result persistence | Live validation | Unresolved |
@@ -474,7 +474,7 @@ No secret, secret fragment, raw provider body on error, SDK object, authorizatio
 
 For each decision record: owner, dated answer, reviewed specification link, approving people, and acceptance tests.
 
-Backend contact for B1-B7: Indra Araujo (backend team lead), named by the lead on 2026-10-23. Questions were drafted that day; all seven remain unresolved until dated answers are recorded here. No values, secrets, private dumps, or real customer payloads belong here.
+Backend contact for B1-B7: Indra Araujo (backend team lead), named by the lead on 2026-10-23. Questions were drafted that day. A partial answer covering B1 and B2 question 6 was received on 2026-11-06 (see the review record). It describes the current state rather than an agreed design, so all seven remain unresolved. No values, secrets, private dumps, or real customer payloads belong here.
 
 ### Handoff checklist
 
