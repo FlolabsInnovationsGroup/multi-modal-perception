@@ -25,7 +25,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-temp_auto_push.bat
 
 # IDE / editor
 .idea/
@@ -54,5 +53,3 @@ gpu_cloud_benchmark/run_comparison_started.txt
 .coverage
 htmlcov/
 .mypy_cache/
-.gitignore
-branch_structure.json
