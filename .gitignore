@@ -17,6 +17,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!prompt-enhancement/src/lib/
+!prompt-enhancement/src/lib/**
 lib64/
 parts/
 sdist/
@@ -28,7 +30,6 @@ wheels/
 
 # IDE / editor
 .idea/
-.vscode/
 *.swp
 *.swo
 *~
