@@ -31,7 +31,7 @@ requests
 # Audio Pipeline
 # =========================
 
-openai-whisper
+faster-whisper
 librosa
 soundfile
 

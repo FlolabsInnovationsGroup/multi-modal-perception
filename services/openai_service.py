@@ -1,17 +1,12 @@
 import asyncio
-import io
-import logging
 import os
-import time
 from typing import Dict, Optional
 
 from openai import AsyncOpenAI
 
-logger = logging.getLogger(__name__)
-
+from services.whisper_service import get_whisper_service
 
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
 MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "256"))
 TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.4"))
 
@@ -44,54 +39,39 @@ class UltraFastOpenAIService:
             return "", 0
 
         cache_key = normalized.lower()
-        start = time.monotonic()
 
         cached = self._cache.get(cache_key)
         if cached is not None:
-            elapsed_ms = (time.monotonic() - start) * 1000
             return cached, 0
 
-        try:
-            response = await self._client.chat.completions.create(
-                model=DEFAULT_MODEL,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": normalized},
-                ],
-                max_tokens=MAX_TOKENS,
-                temperature=TEMPERATURE,
-            )
+        response = await self._client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": normalized},
+            ],
+            max_tokens=MAX_TOKENS,
+            temperature=TEMPERATURE,
+        )
 
-            content = (response.choices[0].message.content or "").strip()
-            total_tokens = response.usage.total_tokens if response.usage else 0
+        content = (response.choices[0].message.content or "").strip()
+        total_tokens = response.usage.total_tokens if response.usage else 0
 
-            async with self._lock:
-                self._cache[cache_key] = content
+        async with self._lock:
+            self._cache[cache_key] = content
 
-            elapsed_ms = (time.monotonic() - start) * 1000
-
-            return content, total_tokens
-
-        except Exception as exc:  # noqa: BLE001
-            elapsed_ms = (time.monotonic() - start) * 1000
-            return f"Perception system temporarily unavailable. Echoing input: {normalized}", 0
+        return content, total_tokens
 
     async def transcribe_audio(
         self,
         audio_bytes: bytes,
         filename: str = "audio.wav",
     ) -> str:
-        if not audio_bytes:
-            return ""
-
-        audio_stream = io.BytesIO(audio_bytes)
-        audio_stream.name = filename
-
-        transcript = await self._client.audio.transcriptions.create(
-            model=TRANSCRIBE_MODEL,
-            file=audio_stream,
+        transcript, _ = await get_whisper_service().transcribe_audio(
+            audio_bytes,
+            filename,
         )
-        return (transcript.text or "").strip()
+        return transcript
 
     async def generate_multimodal_response(
         self,
@@ -128,4 +108,3 @@ def get_ultra_fast_service() -> UltraFastOpenAIService:
         _ultra_fast_service = UltraFastOpenAIService()
 
     return _ultra_fast_service
-

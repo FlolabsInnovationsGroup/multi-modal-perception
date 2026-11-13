@@ -35,6 +35,16 @@ The current audio pipeline uses:
 
 It supports food-related image and audio question answering.
 
+The server also exposes `POST /v1/transcribe` for uploaded audio. Send
+`multipart/form-data` with the `audio_file` field; the response contains
+`transcript` and the configured Whisper `model`. This endpoint lets the main
+multimodal service transcribe audio without sharing a filesystem path.
+
+The same server exposes `POST /v1/generate` for text or image-plus-text
+inference. It accepts a JSON `prompt` and an optional `image` data URL, and
+returns the generated `output` and loaded model name. Both endpoints are
+available from the image-audio server process on port 6007.
+
 ## Project Structure
 
     MiniCPM-V-food-calorie/

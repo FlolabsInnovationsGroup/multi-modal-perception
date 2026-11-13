@@ -60,7 +60,7 @@ async def openAI_data(
     except RuntimeError as config_error:
         raise HTTPException(
             status_code=500,
-            detail="Perception system misconfiguration (missing OpenAI setup).",
+            detail="Perception provider service misconfiguration.",
         ) from config_error
     except Exception as e:
         logger.error(f"Error during processing: {str(e)}")

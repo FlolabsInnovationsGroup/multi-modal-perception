@@ -9,11 +9,11 @@ import logging
 
 from dotenv import load_dotenv
 
-from api import health, openAI, process
-
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
+
+from api import health, openAI, process, speech
 
 app = FastAPI(
     title="Multimodal Perception Microservice",
@@ -24,6 +24,7 @@ app = FastAPI(
 app.include_router(health.router, tags=["System"])
 app.include_router(process.router, tags=["Perception"])
 app.include_router(openAI.router, tags=["OpenAI"])
+app.include_router(speech.router, tags=["Speech"])
 
 if __name__ == "__main__":
     import uvicorn

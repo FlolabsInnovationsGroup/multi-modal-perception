@@ -1,6 +1,7 @@
 import os
 import io
 import json
+import tempfile
 import time
 import base64
 import threading
@@ -13,7 +14,7 @@ import torch
 
 from PIL import Image
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 import uvicorn
@@ -217,6 +218,14 @@ class GenerateAudioRequest(BaseModel):
     )
 
 
+class GenerateRequest(BaseModel):
+
+    prompt: str
+
+    image: Optional[str] = None
+
+    model: Optional[str] = None
+
 
 class ImageAudioBatchRequest(BaseModel):
 
@@ -235,6 +244,10 @@ class ImageAudioBatchRequest(BaseModel):
 
 def load_image(path_or_url):
 
+    if path_or_url.startswith("data:image"):
+        _, encoded_image = path_or_url.split(",", 1)
+        image_bytes = base64.b64decode(encoded_image)
+        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     if path_or_url.startswith(
         ("http://","https://")
@@ -307,30 +320,15 @@ def run_minicpm(
     prompt
 ):
 
+    if image is not None:
+        content = [
+            {"type": "image", "image": image},
+            {"type": "text", "text": prompt},
+        ]
+    else:
+        content = prompt
 
-    messages=[
-
-        {
-
-            "role":"user",
-
-            "content":[
-
-                {
-                    "type":"image",
-                    "image":image
-                },
-
-                {
-                    "type":"text",
-                    "text":prompt
-                }
-
-            ]
-
-        }
-
-    ]
+    messages = [{"role": "user", "content": content}]
 
 
 
@@ -352,28 +350,14 @@ def run_minicpm(
 
     print("========== DEBUG ==========")
 
-    print(
-        "image:",
-        image.size
-    )
+    if image is not None:
+        print("image:", image.size)
 
 
-    print(
-        "downsample:",
-        processor.image_processor.downsample_mode
-    )
-
-
-    print(
-        "pixel_values:",
-        inputs["pixel_values"].shape
-    )
-
-
-    print(
-        "target_sizes:",
-        inputs["target_sizes"]
-    )
+    if image is not None:
+        print("downsample:", processor.image_processor.downsample_mode)
+        print("pixel_values:", inputs["pixel_values"].shape)
+        print("target_sizes:", inputs["target_sizes"])
 
 
     print("==========================")
@@ -394,16 +378,17 @@ def run_minicpm(
 
 
     with torch.no_grad():
-
-        outputs=model.generate(
-
-            **inputs,
-
-            max_new_tokens=2048,
-
-            downsample_mode="4x"
-
-        )
+        if image is not None:
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=2048,
+                downsample_mode="4x"
+            )
+        else:
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=2048
+            )
 
 
 
@@ -519,6 +504,53 @@ def health():
     }
 
 
+@app.post("/v1/transcribe")
+async def transcribe_uploaded_audio(audio_file: UploadFile = File(...)):
+    audio_bytes = await audio_file.read()
+    if not audio_bytes:
+        raise HTTPException(
+            status_code=422,
+            detail="audio_file must not be empty"
+        )
+
+    suffix = os.path.splitext(audio_file.filename or "")[1]
+    audio_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_audio:
+            temp_audio.write(audio_bytes)
+            audio_path = temp_audio.name
+
+        transcript = transcribe_audio(audio_path)
+        watchdog.reset()
+        return {
+            "transcript": transcript,
+            "model": WHISPER_MODEL
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if audio_path and os.path.exists(audio_path):
+            os.remove(audio_path)
+
+
+@app.post("/v1/generate")
+def generate_endpoint(req: GenerateRequest):
+    if req.model and req.model != MODEL_ID:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Requested model {req.model!r} is not loaded."
+        )
+
+    try:
+        image = load_image(req.image) if req.image else None
+        result = run_minicpm(image, req.prompt)
+        watchdog.reset()
+        return {
+            "output": result,
+            "model": MODEL_ID,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 

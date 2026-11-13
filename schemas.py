@@ -15,3 +15,10 @@ class PerceptionOutput(BaseModel):
     result: str
     model: str
     file_type: Literal["text", "audio", "image", "video"]
+
+
+class TranscriptionOutput(BaseModel):
+    """Response from the /transcribe endpoint."""
+
+    transcript: str
+    model: str

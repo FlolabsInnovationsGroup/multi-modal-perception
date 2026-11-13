@@ -2,7 +2,7 @@
 
 Python microservice that will serve as the foundation for a **multimodal perception system** (vision, language, dialogue). The service is built as a single, loosely coupled application suitable for later deployment as part of a larger suite of services.
 
-Currently, it also acts as a lightweight event-driven service that receives text plus an audio file and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
+The service routes text and image requests to MiniCPM-V-4.6 and audio through a self-hosted Whisper transcription endpoint before response generation. The `/openAI` compatibility endpoint remains available for OpenAI text responses.
 
 ### Project Architecture
 
@@ -11,11 +11,14 @@ Currently, it also acts as a lightweight event-driven service that receives text
         │   ├── __init__.py      # Marks the directory as a Python package
         │   ├── health.py        # Contains system health check routes
         │   ├── openAI.py        # Contains POST /openAI (OpenAI-backed responses)
-        │   └── process.py       # Contains the main perception trigger routes
+        │   ├── process.py       # Contains the main perception trigger routes
+        │   └── speech.py        # Contains POST /transcribe
         ├── main.py              # The central application orchestrator
         ├── schemas.py           # The single source of truth for data structures
-        ├── services/            # Service layer (e.g., OpenAI integration)
-        │   └── openai_service.py
+        ├── services/            # OpenAI, MiniCPM, and Whisper clients
+        │   ├── openai_service.py
+        │   ├── minicpm_service.py
+        │   └── whisper_service.py
         └── requirements.txt     # Project dependencies
 
 ### How the Code Works
@@ -29,15 +32,17 @@ The system is broken down into specific functional areas:
 
     * ``health.py``: Handles the ``GET /health`` route used by deployment managers (like Docker or Kubernetes) to check if the server is alive.
 
-    * ``process.py``: Handles the ``POST /process`` route. This is the main trigger that accepts a multipart payload (text + audio file), transcribes the audio with OpenAI, and returns a concise perception response.
+    * ``process.py``: Handles ``POST /process`` for text, image, and audio inputs. Audio is transcribed by the self-hosted Whisper service; MiniCPM-V-4.6 generates the response.
 
-    * ``openAI.py``: Handles the ``POST /openAI`` route. Same multipart contract as ``/process`` (optional ``text_input`` and ``audio_file``; at least one required): uses OpenAI to generate a text response and returns ``PerceptionOutput``.
+    * ``openAI.py``: Handles ``POST /openAI`` with optional ``text_input`` and ``audio_file`` fields; it uses Whisper for audio transcription and OpenAI for response generation.
+
+    * ``speech.py``: Handles ``POST /transcribe`` and returns the transcript from the self-hosted Whisper service.
 
 ---
 
 ### OpenAI Integration
 
-This microservice integrates directly with the OpenAI Chat Completions API using an async, cached client optimized for low latency.
+The `/openAI` compatibility endpoint integrates with the OpenAI Chat Completions API using an async, cached client.
 
 - **Async client**: Uses `AsyncOpenAI` for non-blocking calls under FastAPI.
 - **Ultra-fast cache**: In-memory cache keyed by normalized user input to avoid redundant calls.
@@ -45,24 +50,33 @@ This microservice integrates directly with the OpenAI Chat Completions API using
 
 #### Required Environment Variables
 
-Before starting the server, set at least:
+Set these variables for the corresponding routes:
 
-- **`OPENAI_API_KEY`**: Your OpenAI API key.
+- **`MINICPM_API_URL`**: Base URL of the MiniCPM/Whisper GPU service. It must expose `POST /v1/generate` and `POST /v1/transcribe`.
+- **`OPENAI_API_KEY`**: Required only for the `/openAI` endpoint.
 
 Optional tuning (all have sensible defaults):
 
 - **`OPENAI_MODEL`**: Defaults to `gpt-4o-mini`.
-- **`OPENAI_TRANSCRIBE_MODEL`**: Defaults to `gpt-4o-mini-transcribe`.
+- **`MINICPM_MODEL`**: Defaults to `openbmb/MiniCPM-V-4.6`.
 - **`OPENAI_MAX_TOKENS`**: Defaults to `256`.
 - **`OPENAI_TEMPERATURE`**: Defaults to `0.4`.
 - **`OPENAI_SYSTEM_PROMPT`**: Custom system prompt for the multimodal perception assistant.
 
-Example (Unix/macOS):
+Example (PowerShell):
 
-```bash
-export OPENAI_API_KEY="sk-..."
-export OPENAI_MODEL="gpt-4o-mini"
+```powershell
+$env:MINICPM_API_URL = "http://localhost:6007"
+$env:OPENAI_API_KEY = "<set-through-a-secret-manager>"
 ```
+
+### Selected models
+
+- **TL-approved: MiniCPM-V-4.6** handles text and image understanding. It matches the team's tested turn-based vision baseline and is released under Apache-2.0.
+- **Self-hosted Whisper (`small` by default)** transcribes uploaded audio on the GPU service. This reuses the team's existing audio pipeline and avoids depending on a hosted transcription model scheduled for shutdown. OpenAI's API model `whisper-1` is also deprecated, so the service does not use it.
+- This is a turn-based image/text/audio pipeline, not a full-duplex speech system.
+
+The MiniCPM model card is available at [Hugging Face](https://huggingface.co/openbmb/MiniCPM-V-4.6). Whisper's self-hosted implementation is [MIT-licensed](https://github.com/openai/whisper/blob/main/LICENSE). OpenAI's [deprecations page](https://developers.openai.com/api/docs/deprecations) lists `gpt-4o-mini-transcribe` and hosted `whisper-1` for shutdown on February 26, 2027.
 
 ---
 
@@ -79,19 +93,20 @@ export OPENAI_MODEL="gpt-4o-mini"
 | File / concept        | Role |
 |-----------------------|------|
 | `main.py`             | Application entry: FastAPI app, router registration, logging, and `uvicorn.run` when executed directly. |
-| `api/`                | API module: `health.py` (GET /health), `process.py` (POST /process), `openAI.py` (POST /openAI). Keeps routes modular and testable. |
+| `api/`                  | API module: `health.py` (GET /health), `process.py` (POST /process), `speech.py` (POST /transcribe), and `openAI.py` (POST /openAI). Keeps routes modular and testable. |
 | `schemas.py`          | Pydantic models for typed API structures (currently used for response validation via `PerceptionOutput`). |
 | `requirements.txt`    | Pinned dependencies (FastAPI, Uvicorn, Pydantic) for reproducible installs. |
-| `POST /process`       | Main trigger: accepts `multipart/form-data` with `text_input` and `audio_file`, returns JSON with `result` (OpenAI response or stub). |
-| `POST /openAI`        | OpenAI route: same multipart fields as `/process`; returns `{"result": "<OpenAI response>"}`. |
+| `POST /process`       | Main multimodal trigger: accepts optional `text_input`, `audio_file`, and `image_file`; uses Whisper for audio transcription and MiniCPM-V-4.6 for responses. |
+| `POST /transcribe`    | Accepts `multipart/form-data` with `audio_file`; returns the Whisper transcript and model name. |
+| `POST /openAI`        | OpenAI-compatible route: accepts optional `text_input` and `audio_file`; returns `PerceptionOutput`. |
 | `GET /health`         | Health check for load balancers and orchestrators (e.g. Docker/Kubernetes). |
 
 ### API behavior (current)
 
 1. **Health:** `GET /health` → `{"status": "healthy"}`.
-2. **Process:** `POST /process` with `multipart/form-data` fields `text_input` and `audio_file` → audio is transcribed first, then `{"result": "<OpenAI response>"}`.  
-   Any unhandled exception in the handler returns HTTP 500 with a generic error message; logs contain the real error for debugging.
-3. **OpenAI:** `POST /openAI` with the same `multipart/form-data` shape (`text_input` and/or `audio_file`; at least one required) → `{"result": "<OpenAI response>"}`. Missing both fields returns HTTP 422.
+2. **Process:** `POST /process` accepts any non-empty combination of `text_input`, `audio_file`, and `image_file`. Audio is transcribed by the Whisper service and MiniCPM-V-4.6 generates the response. `MINICPM_API_URL` must be configured.
+3. **Transcribe:** `POST /transcribe` accepts `audio_file` and returns `{"transcript": "...", "model": "..."}`.
+4. **OpenAI:** `POST /openAI` keeps the existing `text_input` and `audio_file` multipart contract. Audio uses the self-hosted Whisper service; text response generation uses OpenAI.
 
 ### Logging
 
@@ -148,21 +163,35 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   ```
   Expected: `{"status":"healthy"}`
 
+- **Process (text + image + audio):**
+  ```powershell
+  curl.exe -X POST http://localhost:8000/process `
+    -F "text_input=What is happening in this scene?" `
+    -F "image_file=@C:\path\to\image.jpg" `
+    -F "audio_file=@C:\path\to\question.wav"
+  ```
+
+- **Transcribe audio:**
+  ```powershell
+  curl.exe -X POST http://localhost:8000/transcribe `
+    -F "audio_file=@C:\path\to\question.wav"
+  ```
+
 - **Process (main trigger):**
   ```bash
   curl -X POST http://localhost:8000/process \
-    -F "text_input=from curl" \
-    -F "audio_file=@/absolute/path/to/sample.wav"
+    -F "text_input=What is happening in this scene?" \
+    -F "image_file=@/absolute/path/to/image.jpg" \
+    -F "audio_file=@/absolute/path/to/question.wav"
   ```
-  Expected: `{"result":"Hello world from curl"}` (stub) or with OpenAI: `{"result":"<model response>"}`.
+  Expected: `{"result":"<MiniCPM response>","model":"openbmb/MiniCPM-V-4.6","file_type":"image"}`.
 
-  Example with a question:
+- **Transcribe audio:**
   ```bash
-  curl -X POST http://localhost:8000/process \
-       -F "text_input=What is OpenAI?" \
-       -F "audio_file=@/absolute/path/to/sample.wav"
+  curl -X POST http://localhost:8000/transcribe \
+    -F "audio_file=@/absolute/path/to/question.wav"
   ```
-  Expected output: OpenAI chat response.
+  Expected: `{"transcript":"<recognized speech>","model":"small"}`.
 
 - **OpenAI (`POST /openAI`):**  
   Text only:
@@ -191,12 +220,13 @@ multi-modal-perception/
 ├── main.py                   # FastAPI app entry, router registration
 ├── schemas.py                # Pydantic models (PerceptionInput, PerceptionOutput)
 ├── requirements.txt          # fastapi, uvicorn, pydantic (pinned versions)
-├── api/                      # API routes (health, process, openAI)
+├── api/                      # API routes (health, process, speech, openAI)
 │   ├── __init__.py
 │   ├── health.py             # GET /health
 │   ├── openAI.py             # POST /openAI
 │   └── process.py            # POST /process
-├── services/                 # Service layer (e.g., OpenAI)
+│   └── speech.py             # POST /transcribe
+├── services/                 # Provider service clients
 │   └── openai_service.py
 └── caipo_multimodal_dataset/ # Training/eval dataset (see its README)
 ```
@@ -205,8 +235,7 @@ multi-modal-perception/
 
 ## Future work (placeholders in code)
 
-- **vLLM / model integration:** The main processing logic can be extended in `api/process.py` (e.g. swap or complement the OpenAI client with vLLM).
-- **Multimodal input/output:** When adding images or other modalities, extend the Pydantic models in `schemas.py` (e.g. optional `image_url` or `image_b64`) and the `/process` handler in `api/process.py` accordingly; the same endpoint can be extended or new endpoints can be added.
+- **Speech synthesis:** Add a TTS provider and `/synthesize` endpoint when a model and service contract are selected.
 
 ---
 
@@ -216,6 +245,7 @@ multi-modal-perception/
 - **uvicorn** — ASGI server that runs the FastAPI app.
 - **pydantic** — Data validation and serialization for request/response bodies.
 - **openai** — OpenAI API client for chat completions.
+- **httpx** — asynchronous client for MiniCPM and Whisper GPU service requests.
 - **python-dotenv** — Load environment variables from `.env`.
 
 All versions are pinned in `requirements.txt` for reproducible builds.
