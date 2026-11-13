@@ -20,8 +20,9 @@ For a first review, read this page, Requirements, and Delivery plan. Engineers t
 | [6. Review record](review-record.md) | What changed after Indra's review, why, and what is still unapproved? | Indra and reviewers; R01–R33 responses, ADR-006 decision, migration map and documentation checks. |
 | [7. Codex start prompt](codex-start-prompt.md) | What exactly do we give AI to begin an assigned task? | Each developer; one copy/paste prompt that starts with repository inspection and a task proposal. |
 | [8. Team announcement](team-announcement.md) | How do we explain the update and first assignments on Discord? | Lead; three ready-to-send messages after the revision is shared. |
+| [9. Speech synthesis design](speech-synthesis-design.md) | How should `/synthesize` work after OpenAI's speech models shut down? | Future work, outside this feature (deferred 2026-11-13); T3.3 draft with options, proposed design, tests and open decisions S-1 to S-7. |
 
-This Start Here page is the ninth active feature document. Separate files are used for different jobs, not as competing instructions. Requirements define behavior; the plan orders work; the design explains interfaces; tests prove it. Repeating a requirement ID in a test is traceability, not a second requirement.
+This Start Here page is the tenth active feature document. Separate files are used for different jobs, not as competing instructions. Requirements define behavior; the plan orders work; the design explains interfaces; tests prove it. Repeating a requirement ID in a test is traceability, not a second requirement.
 
 ## The five root guides
 

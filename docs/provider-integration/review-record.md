@@ -546,7 +546,7 @@ Decided by the lead (Mani) in conversation on 2026-11-13. These settle the open 
 | D-1 | Users' own (customer-managed) keys are in scope as well as platform-managed keys | Backend must build customer key submission and storage; module already supports both sources without substitution |
 | D-2 | Lead accepted the recommendation: HTTP status plus `{error_code, message, request_id}` for new endpoints; existing routes unchanged | Mapping in the technical design, to agree with Ofon |
 | D-3 | Overall invocation limit 60 seconds | Card T4.3 |
-| D-4 | `/invoke`, `/transcribe` and `/synthesize` are in scope | Routes wait for service authentication; synthesis needs a Realtime API design (T3.3) |
+| D-4 | `/invoke` and `/transcribe` are in scope. `/synthesize` was first included, then **deferred to future work** by Mani later on 2026-11-13: not part of this feature or its pull request | Routes wait for service authentication. The T3.3 synthesis design is kept as a draft for future work; S-1 to S-7 not decided |
 | D-5 | Option A: backend chooses the model, the service double-checks it against its approved list | Card T4.4 |
 | D-6 | Ofon is the only backend owner; Indra Araujo has left the company | Contacts updated |
 

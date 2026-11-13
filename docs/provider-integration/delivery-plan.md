@@ -131,7 +131,7 @@ Card status: **T2.1 accepted 2026-10-23 by Mani** (evidence below; shared as `82
 
 ### Cards after the backend answers (2026-11-13)
 
-Local only, on `provider-integration-clean`. No route is registered, no real key is used and nothing is deployed. T4.3-T4.6 were approved by Mani on 2026-11-13, implemented the same day and accepted by him (evidence below; no independent reviewer). T3.3 and P-1 are not started and need their own approval.
+Local only, on `provider-integration-clean`. No route is registered, no real key is used and nothing is deployed. T4.3-T4.6 were approved by Mani on 2026-11-13, implemented the same day and accepted by him (evidence below; no independent reviewer). T3.3 was drafted on 2026-11-13, then deferred to future work by Mani the same day; P-1 is not started.
 
 | Card | Decision | Proposed work | Exit evidence |
 | --- | --- | --- | --- |
@@ -139,7 +139,7 @@ Local only, on `provider-integration-clean`. No route is registered, no real key
 | T4.4 | D-5 | Confirm and test that a backend-chosen model outside the approved targets is refused (`UNSUPPORTED_OPERATION`, the existing code for a model this service does not run) and never substituted | New denial tests; no configuration change to real model names |
 | T4.5 | D-1 | Confirm and test both key sources end to end with fakes, including mismatched-source denial | New source tests; no fallback between sources |
 | T4.6 | D-2, B6.23 | Pure mapping from module results to HTTP status and body, with `total_tokens` and `provider_request_id`; no route registered | Mapping tests for every error code; leakage tests on bodies |
-| T3.3 | D-4 | Speech-synthesis design note: Realtime API approach, dependency needs, limits and tests. No code | Design note reviewed; any dependency change proposed separately |
+| T3.3 | D-4 | Speech-synthesis design note: Realtime API approach, dependency needs, limits and tests. No code. **Deferred to future work by Mani on 2026-11-13; not part of this feature or its pull request. Draft kept: [speech synthesis design](speech-synthesis-design.md)** | Design note reviewed; any dependency change proposed separately |
 | P-1 | D-1 to D-6 | M2 interface proposal for Ofon: signed context claims, credential endpoint request and response, states, error mapping, limits | Document shared by Mani; Ofon's dated answers recorded |
 
 ### T4.3-T4.6 evidence — 2026-11-13
@@ -633,7 +633,7 @@ There was no independent reviewer. Nothing here is live, backend or production e
 | B3 | Service authentication, request integrity, expiry/replay for the real ContextVerifier | Answered 2026-11-13, not resolved: today a static bearer key over plain HTTP to a public address. Backend plans a short-lived signed token (binding, allowed targets, expiry, request ID); format not specified. Generic access denied agreed | Ofon (backend team lead) |
 | B4 | Lifecycle states, version IDs, atomic admission/rotation ordering (the fake models one option) | Answered 2026-11-13, not resolved: no versioning yet. Policies agreed: deny old versions, in-flight requests finish, stale validation results rejected, atomic state+version read is a store requirement | Ofon (backend team lead) |
 | B5 | When validation is requested; probe cost/rate policy; result persistence | Answered 2026-11-13, not resolved: validate on submit and rotation; at most 1 call per rotation and re-checks no more than every 24 h (proposed, pending manager approval); indeterminate stored as non-invalid; result table to be built | Ofon (backend team lead) |
-| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Answered 2026-11-13; lead decided D-2, D-4 and D-5, backend agreement pending: new routes and error body, add `provider_request_id`, keep `/process` until staging-verified, flag-based rollback with no silent fallback | Ofon (backend team lead) |
+| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Answered 2026-11-13; lead decided D-2, D-4 and D-5, backend agreement pending: new routes `/invoke` and `/transcribe` (synthesis deferred) and error body, add `provider_request_id`, keep `/process` until staging-verified, flag-based rollback with no silent fallback | Ofon (backend team lead) |
 | B7 | Live limits, memory-only upload handling before spooling, telemetry/retention | Answered 2026-11-13; lead decided D-3 (60 s); no gateway upload limit yet (infrastructure task); logging fields and support split agreed; retention with infrastructure | Ofon (backend team lead) |
 
 **Next approvals**
