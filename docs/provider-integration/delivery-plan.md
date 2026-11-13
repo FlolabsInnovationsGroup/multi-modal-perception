@@ -131,7 +131,7 @@ Card status: **T2.1 accepted 2026-10-23 by Mani** (evidence below; shared as `82
 
 ### Cards after the backend answers (2026-11-13)
 
-Local only, on `provider-integration-clean`. No route is registered, no real key is used and nothing is deployed. T4.3-T4.6 were approved by Mani on 2026-11-13, implemented the same day and accepted by him (evidence below; no independent reviewer). T3.3 was drafted on 2026-11-13, then deferred to future work by Mani the same day; P-1 is not started.
+Local only, on `provider-integration-clean`. No route is registered, no real key is used and nothing is deployed. T4.3-T4.6 were approved by Mani on 2026-11-13, implemented the same day and accepted by him (evidence below; no independent reviewer). T3.3 was drafted on 2026-11-13, then deferred to future work by Mani the same day; P-1 was drafted on 2026-11-13 and awaits Mani's review before he shares it.
 
 | Card | Decision | Proposed work | Exit evidence |
 | --- | --- | --- | --- |
@@ -140,7 +140,7 @@ Local only, on `provider-integration-clean`. No route is registered, no real key
 | T4.5 | D-1 | Confirm and test both key sources end to end with fakes, including mismatched-source denial | New source tests; no fallback between sources |
 | T4.6 | D-2, B6.23 | Pure mapping from module results to HTTP status and body, with `total_tokens` and `provider_request_id`; no route registered | Mapping tests for every error code; leakage tests on bodies |
 | T3.3 | D-4 | Speech-synthesis design note: Realtime API approach, dependency needs, limits and tests. No code. **Deferred to future work by Mani on 2026-11-13; not part of this feature or its pull request. Draft kept: [speech synthesis design](speech-synthesis-design.md)** | Design note reviewed; any dependency change proposed separately |
-| P-1 | D-1 to D-6 | M2 interface proposal for Ofon: signed context claims, credential endpoint request and response, states, error mapping, limits | Document shared by Mani; Ofon's dated answers recorded |
+| P-1 | D-1 to D-6 | M2 interface proposal for Ofon: signed context claims, credential endpoint request and response, states, error mapping, limits. **Drafted 2026-11-13: [M2 interface proposal](m2-interface-proposal.md); not yet shared** | Document shared by Mani; Ofon's dated answers recorded |
 
 ### T4.3-T4.6 evidence — 2026-11-13
 

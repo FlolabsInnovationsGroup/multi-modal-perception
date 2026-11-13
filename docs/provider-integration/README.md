@@ -21,8 +21,9 @@ For a first review, read this page, Requirements, and Delivery plan. Engineers t
 | [7. Codex start prompt](codex-start-prompt.md) | What exactly do we give AI to begin an assigned task? | Each developer; one copy/paste prompt that starts with repository inspection and a task proposal. |
 | [8. Team announcement](team-announcement.md) | How do we explain the update and first assignments on Discord? | Lead; three ready-to-send messages after the revision is shared. |
 | [9. Speech synthesis design](speech-synthesis-design.md) | How should `/synthesize` work after OpenAI's speech models shut down? | Future work, outside this feature (deferred 2026-11-13); T3.3 draft with options, proposed design, tests and open decisions S-1 to S-7. |
+| [10. M2 interface proposal](m2-interface-proposal.md) | What must FloBrain and multimodal agree before live integration? | Lead and backend owner (Ofon); P-1 proposal: signed request token, credential endpoint, routes, errors, limits and open questions O-1 to O-11. |
 
-This Start Here page is the tenth active feature document. Separate files are used for different jobs, not as competing instructions. Requirements define behavior; the plan orders work; the design explains interfaces; tests prove it. Repeating a requirement ID in a test is traceability, not a second requirement.
+This Start Here page is the eleventh active feature document. Separate files are used for different jobs, not as competing instructions. Requirements define behavior; the plan orders work; the design explains interfaces; tests prove it. Repeating a requirement ID in a test is traceability, not a second requirement.
 
 ## The five root guides
 
