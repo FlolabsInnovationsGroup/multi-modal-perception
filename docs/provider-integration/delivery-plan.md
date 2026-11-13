@@ -9,6 +9,7 @@ Current state (2026-10-23): T1 L1-L8 accepted.
 - **T4.1 implemented and accepted by Mani on 2026-10-23** (uncommitted; no independent reviewer).
 - **T4.2 and review fix F1 accepted by Mani on 2026-10-23** (no independent reviewer). R1-R4 fixed; full suite **194/194** in `.venv`; R5-R9 are recorded follow-ups. T4.1, T4.2 and F1 are committed locally together (not pushed).
 - **Still to do:** the M1 sign-off decision (not yet given). M2 stays blocked on B1-B7.
+- **2026-11-13:** backend answers to B1-B7 received and lead decisions D-1 to D-6 recorded (review record). Work continues on local branch `provider-integration-clean`. Ofon is the only backend owner; Indra Araujo has left.
 Authority: [feature PRD](requirements.md), [AGENTS](../../AGENTS.md).
 
 ## Verified baseline
@@ -40,6 +41,7 @@ Recheck this baseline before coding; it is not a permanent description of the re
 | Feature code, dependency changes, live credentials, deployment, Git writes | Not approved by documentation approval | Obtain task/action-specific approvals |
 | M1 implementation-specification completion | User approved the documentation-only plan on 2026-09-19 | Specify L1-L8, task slices, tests and handoff locally; no code, Notion update or Git writes |
 | Coordination corrections C1-C3 | Requesting user (core owner) instructed and approved the documentation-only update on 2026-10-16 | C1 parallel T2/T3 tracks after a reviewed T2.1 checkpoint; C2 split validation tests; C3 old-version denial after rotation. Not T1 acceptance; no code, Git writes or installs |
+| Lead decisions D-1 to D-6 | Lead (Mani) decided in conversation on 2026-11-13 after the backend answers | Both key sources, D-2 error format, 60 s limit, three endpoints, double-checked model choice, Ofon as backend owner. Each code change needs its own card approval |
 
 Indra's comments dated August 15 and September 6 are review input; do not label this rewritten package as approved by her.
 
@@ -126,6 +128,40 @@ Card status: **T2.1 accepted 2026-10-23 by Mani** (evidence below; shared as `82
 | T3.2 | T3.1 accepted; provider engineer + QA | Extend adapter and `test_openai_transport.py`, `test_openai_validation.py`; bounded response transport, no redirects, probes and status mapping | TC-04/07/08/09/12: TC-04 adapter probe/outcome assertions in `test_openai_validation.py`; one probe/call, synthetic WAV only, response-byte cap before deserialization, deny alternate host; no installed-package changes without approval |
 | T4.1 | T2 and T3 accepted and combined; integration engineer | `handler.py`, `wiring.py`, `test_handler.py`; internal verified handler, deny-all default, legacy-success projection | TC-02/10/13/14: fields/text/audio composition match L4, no public routes registered, no fake selectable at runtime |
 | T4.2 | T4.1 accepted; QA + integration engineer | `test_isolation.py`, `test_leakage.py`, `test_import_safety.py`; complete local regression and handoff evidence in these documents | All local TC cases in acceptance matrix pass; import without key/network; old routes unchanged and not described as safe; M1 reviewer sign-off |
+
+### Cards after the backend answers (2026-11-13)
+
+Local only, on `provider-integration-clean`. No route is registered, no real key is used and nothing is deployed. T4.3-T4.6 were approved by Mani on 2026-11-13, implemented the same day and accepted by him (evidence below; no independent reviewer). T3.3 and P-1 are not started and need their own approval.
+
+| Card | Decision | Proposed work | Exit evidence |
+| --- | --- | --- | --- |
+| T4.3 | D-3 | Change the L5 profile to a 60 s invocation deadline and the sub-limits in the technical design | Limit tests updated and passing; full suite passing |
+| T4.4 | D-5 | Confirm and test that a backend-chosen model outside the approved targets is refused (`UNSUPPORTED_OPERATION`, the existing code for a model this service does not run) and never substituted | New denial tests; no configuration change to real model names |
+| T4.5 | D-1 | Confirm and test both key sources end to end with fakes, including mismatched-source denial | New source tests; no fallback between sources |
+| T4.6 | D-2, B6.23 | Pure mapping from module results to HTTP status and body, with `total_tokens` and `provider_request_id`; no route registered | Mapping tests for every error code; leakage tests on bodies |
+| T3.3 | D-4 | Speech-synthesis design note: Realtime API approach, dependency needs, limits and tests. No code | Design note reviewed; any dependency change proposed separately |
+| P-1 | D-1 to D-6 | M2 interface proposal for Ofon: signed context claims, credential endpoint request and response, states, error mapping, limits | Document shared by Mani; Ofon's dated answers recorded |
+
+### T4.3-T4.6 evidence — 2026-11-13
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T4.3-T4.6, Mani. Approved by Mani on 2026-11-13 as one batch. Local only on `provider-integration-clean`: no route registered, no real key, no install, no commit |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1 |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py"` |
+| Red | T4.3: updated limit tests failed against the 90 s profile (4 failures). T4.6: new mapping tests failed before the module existed (import error) |
+| Green | **218 discovered / 218 passed / 0 failed / 0 errors / 0 skipped** (194 before, +24 new) |
+| Mutation | Removing the approved-target check in `Orchestrator._precheck` made the 3 unapproved-model tests fail; the file was restored byte for byte |
+| Reviewer decision | Accepted by Mani on 2026-11-13 (no independent reviewer) |
+
+| Card | Files | Result |
+| --- | --- | --- |
+| T4.3 (D-3) | `config.py`, `test_contracts.py`, `test_limits.py` | Invocation deadline 60 s; transcription call 30 s (was 60); generation 30 s and validation 20 s unchanged. New test pins the deadline at or below the backend's 60 s adapter timeout |
+| T4.4 (D-5) | new `test_backend_decisions.py` (6 tests) | Existing behavior confirmed, no code change: a backend-chosen model outside the approved targets is refused with `UNSUPPORTED_OPERATION` before the key is read, with no provider call; validation returns indeterminate with the same reason; a model the backend did not authorize is `ACCESS_DENIED`; a replacement model runs once approved on both sides |
+| T4.5 (D-1) | same file (6 tests) | Existing behavior confirmed, no code change: platform keys run end to end with the platform key; customer keys with the customer key; a source mismatch is `ACCESS_DENIED` in both directions; a rejected or disabled customer key never falls back to a platform key |
+| T4.6 (D-2, B6.23) | new `http_contract.py`, `test_http_contract.py` (11 tests), `test_import_safety.py` | Pure `to_http` mapping: every error code has a reviewed status; fixed messages; one shared denial message; 401 only when the route reports a missing service token; success adds `total_tokens` and `provider_request_id` from the generation step, null when unreported. Not imported by any route |
+
+Not covered: no live route, no real backend token, no real provider call. Partial usage on failed requests is not in the error body; P-1 should ask Ofon whether billing needs it. A validation endpoint mapping was not requested in B6.21 and is not built.
 
 ### T2.1 evidence — 2026-10-23 (core track)
 
@@ -570,7 +606,7 @@ There was no independent reviewer. Nothing here is live, backend or production e
 | Code checkpoint | `origin/Mani's_First_Multi_Model_Branch` at `23bd8b5` (T2.1-T3.2). T4.1 (`handler.py`, `wiring.py`, `test_handler.py`, scoped `test_contracts.py` change), T4.2 (three test files) and review fix F1 are committed locally together on 2026-10-23 (not pushed) |
 | Entry points (in-process only) | `wiring.build_unconfigured()` (deny-all default); `wiring.build_handler(verifier=..., reader=..., providers=..., limits=...)`; `Handler.process` / `Handler.validate`; `handler.legacy_success` |
 | Fake conformance tests for a future real reader/verifier | `test_admission.py` (denial matrix, state table, ordering, rotation, stale results, outage) and `test_handler.py::test_untrusted_context` / `test_misbehaving_verifiers_are_denied`. A real reader/verifier should pass equivalent cases |
-| Limit profile | L5 as accepted (`config.LOCAL_LIMIT_PROFILE`): text 64 KiB; prompt and transcript 128 KiB each; audio 10 MiB; output 64 KiB; response body 1 MiB; deadlines 90 s / 20 s; verify and admit 5 s each; calls 30 / 60 / 15 s; connect 5 s; cleanup 2 s; 8 concurrent; zero retries; no redirects |
+| Limit profile | L5 as accepted (`config.LOCAL_LIMIT_PROFILE`): text 64 KiB; prompt and transcript 128 KiB each; audio 10 MiB; output 64 KiB; response body 1 MiB; deadlines 90 s / 20 s; verify and admit 5 s each; calls 30 / 60 / 15 s (amended 2026-11-13 by T4.3 to 60 s / 20 s and calls 30 / 30 / 15 s); connect 5 s; cleanup 2 s; 8 concurrent; zero retries; no redirects |
 | Installed versions | Python 3.12.10, openai 1.109.1, httpx 0.28.1, httpcore 1.0.9, pydantic 2.6.1 (full `pip freeze` in the environment section) |
 
 **Synthetic result shapes (internal, not a wire format; B6 decides HTTP)**
@@ -592,13 +628,13 @@ There was no independent reviewer. Nothing here is live, backend or production e
 
 | ID | Question | Status | Contact |
 | --- | --- | --- | --- |
-| B1 | Protected storage and retrieval/decryption interface for the real CredentialReader | Unresolved: first answer received 2026-11-06. No credential store, endpoint, scoping or state signalling exists; backend named this a blocker. See review record | Indra Araujo (backend team lead) |
-| B2 | Source/schema of the trusted binding; customer/platform source support | Unresolved: question 6 answered 2026-11-06 (no binding exists; to be designed; proposed ID format accepted as a starting point). Questions 7-8 not received | Indra Araujo (backend team lead) |
-| B3 | Service authentication, request integrity, expiry/replay for the real ContextVerifier | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
-| B4 | Lifecycle states, version IDs, atomic admission/rotation ordering (the fake models one option) | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
-| B5 | When validation is requested; probe cost/rate policy; result persistence | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
-| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
-| B7 | Live limits, memory-only upload handling before spooling, telemetry/retention | Unresolved: questions sent; answer not received | Indra Araujo (backend team lead) |
+| B1 | Protected storage and retrieval/decryption interface for the real CredentialReader | Answered 2026-11-13, not resolved: nothing exists yet. Backend agreed on an endpoint returning one scoped key per request and called it a backend blocker for M2. No owner date. See review record | Ofon (backend team lead) |
+| B2 | Source/schema of the trusted binding; customer/platform source support | Answered 2026-11-13, not resolved: binding to be designed; backend `model_registry` to own model/operation permissions; backend has platform-managed keys only; lead decided both sources are in scope (D-1) | Ofon (backend team lead) |
+| B3 | Service authentication, request integrity, expiry/replay for the real ContextVerifier | Answered 2026-11-13, not resolved: today a static bearer key over plain HTTP to a public address. Backend plans a short-lived signed token (binding, allowed targets, expiry, request ID); format not specified. Generic access denied agreed | Ofon (backend team lead) |
+| B4 | Lifecycle states, version IDs, atomic admission/rotation ordering (the fake models one option) | Answered 2026-11-13, not resolved: no versioning yet. Policies agreed: deny old versions, in-flight requests finish, stale validation results rejected, atomic state+version read is a store requirement | Ofon (backend team lead) |
+| B5 | When validation is requested; probe cost/rate policy; result persistence | Answered 2026-11-13, not resolved: validate on submit and rotation; at most 1 call per rotation and re-checks no more than every 24 h (proposed, pending manager approval); indeterminate stored as non-invalid; result table to be built | Ofon (backend team lead) |
+| B6 | Wire format, HTTP status mapping, existing-caller migration, rollback | Answered 2026-11-13; lead decided D-2, D-4 and D-5, backend agreement pending: new routes and error body, add `provider_request_id`, keep `/process` until staging-verified, flag-based rollback with no silent fallback | Ofon (backend team lead) |
+| B7 | Live limits, memory-only upload handling before spooling, telemetry/retention | Answered 2026-11-13; lead decided D-3 (60 s); no gateway upload limit yet (infrastructure task); logging fields and support split agreed; retention with infrastructure | Ofon (backend team lead) |
 
 **Next approvals**
 1. Done 2026-10-23: the lead accepted T4.2 and review fix F1 (R1-R4 fixed); R5-R9 remain follow-ups to schedule.

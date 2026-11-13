@@ -1,6 +1,6 @@
 # Feature Requirements: Provider Integration with Backend-Managed API Keys
 
-Revision: 2.1 — 2026-09-19. Status: **Ready for team review; local implementation specification L1-L8 awaits acceptance**.
+Revision: 2.2 — 2026-11-13 (lead decisions D-1 to D-6, §8); 2.1 — 2026-09-19. Status: **Ready for team review; local implementation specification L1-L8 awaits acceptance**.
 Prepared under the user's approved documentation-revision plan, incorporating Indra Araujo's review. This is not a claim that Indra has approved the rewritten wording or an implementation design. A separate Credential Broker deployment is not required by this specification.
 
 ## 1. Problem and purpose
@@ -28,7 +28,7 @@ There are no owner/admin/member roles to implement inside this service. It must 
 
 **PI-03 — Credential validation.** Report whether a selected key can perform the requested supported operation, whether access is definitively rejected, or whether the check could not be completed. A correctly formatted key is not proof of provider access. A timeout or unavailable provider must not be reported as an invalid key. Validation must not use customer content or automatically activate a key.
 
-**PI-04 — Model interaction.** Invoke the provider and model explicitly selected in authorized backend configuration. Reject unsupported models, operations, and incompatible inputs before sending content. Return the actual model result and identify the provider/model used. Preserve supported text/audio behavior; additional modalities require their own tasks.
+**PI-04 — Model interaction.** Invoke the provider and model explicitly selected in authorized backend configuration. Reject unsupported models, operations, and incompatible inputs before sending content. Return the actual model result and identify the provider/model used. Preserve supported text/audio behavior; additional modalities require their own tasks. Speech synthesis (text to audio) is an approved additional operation with its own task (D-4). The backend selects the model per request; the service runs it only if it is also on the service's approved target list (D-5).
 
 **PI-05 — Credential changes.** Respect the backend's current active version and state. New operations must not use disabled or deleted credentials. Validate a pending replacement only for a backend-authorized validation operation; normal execution uses the active version. Return validation against the exact version checked so the backend cannot accidentally activate a different version. Failed replacement validation must not cause this service to switch away from the current active key.
 
@@ -69,3 +69,15 @@ The backend schema/API and secure retrieval mechanism have not been supplied. Th
 The technical design's L1-L8 decisions specify the multimodal module's interfaces, architecture, first adapter, limits, compatibility, test doubles and handoff. T1 accepts or amends that package; approved T2-T4 tasks then produce actual implementation tested without external services (M1). This is not merely a mock prototype: the provider adapter and orchestration are real code, exercised through simulated transports. Actual credential retrieval/service authentication and safe live wiring remain T5-T7 (M2).
 
 The short PRD remains provider-independent. Numerical defaults and implementation filenames belong in the design, not duplicated here. No unknown backend endpoint, database, deployment or authorization mechanism is made up to label the documentation complete.
+
+## 8. Lead decisions — 2026-11-13
+
+Recorded from the lead (Mani) after the backend answers to B1-B7. They change scope, not the security requirements above. Each code change still needs its own task approval.
+
+- **D-1 Key sources.** Both customer-managed (users' own) and platform-managed keys are in scope for M2. The backend currently has platform-managed keys only, so customer key submission and storage are backend work to agree with its owner.
+- **D-2 Error format.** New endpoints return a standard HTTP status and a body with `error_code`, `message` and `request_id`; see the technical design for the mapping. Existing routes keep their current format.
+- **D-3 Time limit.** The overall invocation limit becomes 60 seconds, matching the backend's adapter timeout.
+- **D-4 Endpoints.** Text generation, transcription and speech synthesis endpoints are in scope. Speech synthesis needs its own design because the provider's current speech models shut down on 2027-01-06.
+- **D-5 Model choice.** The backend chooses the model; the service double-checks it against its approved list and refuses anything else.
+- **D-6 Backend owner.** Ofon is the backend team lead and the only backend owner. Indra Araujo has left the company.
+

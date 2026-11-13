@@ -684,11 +684,12 @@ class ErrorSerializationTests(unittest.TestCase):
 
 class LimitProfileTests(unittest.TestCase):
     def test_local_profile_matches_accepted_l5(self):
+        # L5 as amended by D-3 (2026-11-13): 60 s overall, matching the backend's adapter timeout.
         expected = dict(
             max_text_bytes=65_536, max_prompt_bytes=131_072, max_transcript_bytes=131_072,
             max_audio_bytes=10_485_760, max_generation_bytes=65_536, max_response_body_bytes=1_048_576,
-            invocation_timeout_seconds=90, validation_timeout_seconds=20, verify_timeout_seconds=5,
-            admit_timeout_seconds=5, generation_call_timeout_seconds=30, transcription_call_timeout_seconds=60,
+            invocation_timeout_seconds=60, validation_timeout_seconds=20, verify_timeout_seconds=5,
+            admit_timeout_seconds=5, generation_call_timeout_seconds=30, transcription_call_timeout_seconds=30,
             validation_call_timeout_seconds=15, connect_timeout_seconds=5, cleanup_timeout_seconds=2,
             max_concurrent_operations=8, max_retries=0, follow_redirects=False,
         )
@@ -735,8 +736,17 @@ class LimitProfileTests(unittest.TestCase):
             LimitProfile(**limit_values(**{name: 20}))
             with self.subTest(field=name), self.assertRaises(ValueError):
                 LimitProfile(**limit_values(**{name: 21}))
-        with self.assertRaises(ValueError):
-            LimitProfile(**limit_values(transcription_call_timeout_seconds=91))
+        # N / N+1 around the invocation deadline for both invocation call timeouts.
+        for name in ("generation_call_timeout_seconds", "transcription_call_timeout_seconds"):
+            LimitProfile(**limit_values(**{name: 60}))
+            with self.subTest(field=name), self.assertRaises(ValueError):
+                LimitProfile(**limit_values(**{name: 61}))
+
+    def test_invocation_deadline_fits_backend_timeout(self):
+        """D-3: the whole invocation must finish within the backend adapter's 60 s timeout."""
+        backend_adapter_timeout_seconds = 60
+        self.assertLessEqual(LOCAL_LIMIT_PROFILE.invocation_timeout_seconds, backend_adapter_timeout_seconds)
+        self.assertLessEqual(LOCAL_LIMIT_PROFILE.validation_timeout_seconds, backend_adapter_timeout_seconds)
         with self.assertRaises(ValueError):
             LimitProfile(**limit_values(connect_timeout_seconds=16))
 

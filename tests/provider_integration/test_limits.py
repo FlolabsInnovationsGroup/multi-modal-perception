@@ -1,7 +1,7 @@
 """T2.3 limit tests (TC-12 core): byte boundaries, shared capacity, deadlines, cleanup.
 
 Deadlines use tiny test-only profiles (tens of milliseconds); nothing waits for
-the real 90/20-second budgets.
+the real 60/20-second budgets (D-3, 2026-11-13).
 """
 
 import asyncio

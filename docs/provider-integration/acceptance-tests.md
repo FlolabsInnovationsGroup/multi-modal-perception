@@ -354,6 +354,27 @@ Every M2 column in the case table remains not run.
 
 R5-R9 are recorded follow-ups (marked skipped in the review findings).
 
+### T4.3-T4.6 evidence — 2026-11-13 (lead decisions D-1, D-2, D-3, D-5)
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T4.3-T4.6, Mani. Approved by Mani on 2026-11-13 as one batch. Local only on `provider-integration-clean`: no route registered, no real key, no install, no commit |
+| Environment | `.venv` Python 3.12.10, openai 1.109.1, httpx 0.28.1 |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py"` |
+| Red | T4.3: updated limit tests failed against the 90 s profile (4 failures). T4.6: new mapping tests failed before the module existed (import error) |
+| Green | **218 discovered / 218 passed / 0 failed / 0 errors / 0 skipped** (194 before, +24 new) |
+| Mutation | Removing the approved-target check in `Orchestrator._precheck` made the 3 unapproved-model tests fail; the file was restored byte for byte |
+| Reviewer decision | Accepted by Mani on 2026-11-13 (no independent reviewer) |
+
+| Card | Files | Result |
+| --- | --- | --- |
+| T4.3 (D-3) | `config.py`, `test_contracts.py`, `test_limits.py` | Invocation deadline 60 s; transcription call 30 s (was 60); generation 30 s and validation 20 s unchanged. New test pins the deadline at or below the backend's 60 s adapter timeout |
+| T4.4 (D-5) | new `test_backend_decisions.py` (6 tests) | Existing behavior confirmed, no code change: a backend-chosen model outside the approved targets is refused with `UNSUPPORTED_OPERATION` before the key is read, with no provider call; validation returns indeterminate with the same reason; a model the backend did not authorize is `ACCESS_DENIED`; a replacement model runs once approved on both sides |
+| T4.5 (D-1) | same file (6 tests) | Existing behavior confirmed, no code change: platform keys run end to end with the platform key; customer keys with the customer key; a source mismatch is `ACCESS_DENIED` in both directions; a rejected or disabled customer key never falls back to a platform key |
+| T4.6 (D-2, B6.23) | new `http_contract.py`, `test_http_contract.py` (11 tests), `test_import_safety.py` | Pure `to_http` mapping: every error code has a reviewed status; fixed messages; one shared denial message; 401 only when the route reports a missing service token; success adds `total_tokens` and `provider_request_id` from the generation step, null when unreported. Not imported by any route |
+
+Not covered: no live route, no real backend token, no real provider call. Partial usage on failed requests is not in the error body; P-1 should ask Ofon whether billing needs it. A validation endpoint mapping was not requested in B6.21 and is not built.
+
 ### Documentation revision evidence
 
 Scope revision and CODEX handoff were authorized by the requesting user on 2026-09-18. Review disposition: [Indra review resolution](review-record.md). Current documents are ready for team review; acceptance of their detailed wording/contract is pending.

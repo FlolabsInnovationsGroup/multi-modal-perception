@@ -23,6 +23,7 @@ MODULES = (
     "services.provider_integration.ports",
     "services.provider_integration.orchestrator",
     "services.provider_integration.handler",
+    "services.provider_integration.http_contract",
     "services.provider_integration.wiring",
     "services.provider_integration.adapters",
     "services.provider_integration.adapters.openai",

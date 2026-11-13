@@ -51,7 +51,7 @@ Proposed internal error categories:
 | PROVIDER_TIMEOUT / PROVIDER_UNAVAILABLE | Upstream problem or inconclusive validation | Indeterminate validation, not "invalid key" |
 | INTERNAL_ERROR | Unexpected local failure | Generic response, sanitized metadata only |
 
-B6 approves HTTP statuses and exact wire shape; do not invent a public API from these internal codes.
+B6 approves HTTP statuses and exact wire shape; do not invent a public API from these internal codes. D-2 (2026-11-13) proposes a mapping in "Lead decisions D-1 to D-6" below; it awaits the backend owner's agreement.
 
 ### Validation design
 
@@ -252,10 +252,10 @@ These are proposed conservative engineering limits for M1, not provider limits, 
 | Audio | 10,485,760 bytes maximum; formats L2; over limit -> INVALID_INPUT |
 | Returned generation | 65,536 UTF-8 bytes maximum; larger -> PROVIDER_RESPONSE_INVALID |
 | Total provider response body | 1,048,576 bytes per operation, counted while receiving before SDK deserialization; excess aborts safely |
-| Overall invocation | 90 seconds from handler entry including verification/admission; OPERATION_TIMEOUT on expiry |
+| Overall invocation | 60 seconds from handler entry including verification/admission; OPERATION_TIMEOUT on expiry (D-3, implemented by T4.3 on 2026-11-13; was 90) |
 | Overall validation | 20 seconds including verification/admission; indeterminate with OPERATION_TIMEOUT on expiry |
 | Verify and admit | Each at most 5 seconds, also bounded by remaining overall deadline; denial/unavailability on failure |
-| Provider calls | Generation at most 30 seconds, transcription at most 60, validation at most 15; always min with remaining overall deadline |
+| Provider calls | Generation at most 30 seconds, transcription at most 30 (was 60 before D-3), validation at most 15; always min with remaining overall deadline |
 | Connections / cleanup | Connect at most 5 seconds; bounded cleanup at most 2 seconds, release capacity even on cleanup failure |
 | Concurrency | Shared per-process gate of 8 invocations/validations total; no waiting queue; ninth -> CAPACITY_EXCEEDED before credential access |
 | Retries / redirects | Zero application retries; SDK max_retries=0; redirects disabled; never retry an entire combined pipeline |
@@ -265,7 +265,7 @@ Apply total deadline using a monotonic clock after initial context-expiry verifi
 
 ### L6 — First OpenAI adapter specification
 
-Proposed first slice retains existing API families and model names: generation `gpt-4o-mini` through Chat Completions, transcription `gpt-4o-mini-transcribe` through audio transcriptions. These are explicit deployment configuration entries, not fallback values and not a guarantee every account has access. Support exactly these two targets initially; new models/providers require reviewed capability entries and tests.
+Proposed first slice retains existing API families and model names: generation `gpt-4o-mini` through Chat Completions, transcription `gpt-4o-mini-transcribe` through audio transcriptions. These are explicit deployment configuration entries, not fallback values and not a guarantee every account has access. Support exactly these two targets initially; new models/providers require reviewed capability entries and tests. D-5 (2026-11-13): the backend chooses the model per request from its registry, and the service runs it only if it is also an approved target here; replacement models are added here before the provider shutdown dates.
 
 Create one AsyncOpenAI session per lease, with the explicit key, fixed `https://api.openai.com/v1/` destination, no environment-key fallback, max_retries=0, explicit operation timeout and owned transport. Do not inherit arbitrary base URL, proxy, organization/project headers, custom auth headers or verbose SDK logging from the caller/environment. Use TLS verification and no redirects. B1/B3/B7 must review any real environment routing needs; fail configuration rather than override silently. The transport must enforce L5's response byte cap before buffering; use the already-installed HTTP transport's streaming boundary, with fake transport tests. If the installed SDK cannot satisfy this without a dependency change, stop for the specific change approval.
 
@@ -464,17 +464,44 @@ No secret, secret fragment, raw provider body on error, SDK object, authorizatio
 
 | ID | Question / required artifact | Blocking point | Status |
 | --- | --- | --- | --- |
-| B1 | Actual protected storage schema/interface; direct scoped DB read or backend-mediated retrieval; encryption/decryption and least-privilege access owner | Real credential-reader implementation | Unresolved: 2026-11-06 answer says nothing exists yet; backend blocker |
-| B2 | Source and schema of trusted scope/credential/provider binding; support for customer/platform sources; authorization policy ownership | Live request contract | Unresolved: 2026-11-06 partial answer; binding does not exist yet |
-| B3 | Service authentication, request integrity, expiry/replay handling, network exposure, secret-free failure responses | Any externally reachable BYOK path | Unresolved |
-| B4 | Lifecycle states, version identifiers, activation ownership, atomic admission/disable/rotation ordering, stale validation result handling | Live lifecycle correctness | Unresolved |
-| B5 | When validation is requested; approved check per operation, rate/cost limits, timeout/retry budget, and result persistence | Live validation | Unresolved |
-| B6 | Existing consumers; exact route/transport and error status mapping; response compatibility, usage fields, migration and rollback | Exposed API changes / T5-T7; T4 uses reviewed local assumptions only | Unresolved |
-| B7 | Input/upload/concurrency limits; content-spooling and telemetry controls; approved metadata retention and support owner | Integration/release safety | Unresolved |
+| B1 | Actual protected storage schema/interface; direct scoped DB read or backend-mediated retrieval; encryption/decryption and least-privilege access owner | Real credential-reader implementation | Unresolved: 2026-11-13 answer: nothing exists yet; endpoint agreed in principle; backend blocker |
+| B2 | Source and schema of trusted scope/credential/provider binding; support for customer/platform sources; authorization policy ownership | Live request contract | Unresolved: 2026-11-13 answer: binding to be designed; backend has platform-managed keys only; lead decided both sources are in scope (D-1) |
+| B3 | Service authentication, request integrity, expiry/replay handling, network exposure, secret-free failure responses | Any externally reachable BYOK path | Unresolved: 2026-11-13 answer: signed short-lived token planned, format not specified |
+| B4 | Lifecycle states, version identifiers, activation ownership, atomic admission/disable/rotation ordering, stale validation result handling | Live lifecycle correctness | Unresolved: 2026-11-13 answer: policies agreed, no versioning built |
+| B5 | When validation is requested; approved check per operation, rate/cost limits, timeout/retry budget, and result persistence | Live validation | Unresolved: 2026-11-13 answer: triggers and storage proposed, not built |
+| B6 | Existing consumers; exact route/transport and error status mapping; response compatibility, usage fields, migration and rollback | Exposed API changes / T5-T7; T4 uses reviewed local assumptions only | Unresolved: lead decided D-2, D-4, D-5 on 2026-11-13; backend agreement pending |
+| B7 | Input/upload/concurrency limits; content-spooling and telemetry controls; approved metadata retention and support owner | Integration/release safety | Unresolved: lead decided D-3 (60 s) on 2026-11-13; upload gateway and retention owners pending |
 
 For each decision record: owner, dated answer, reviewed specification link, approving people, and acceptance tests.
 
-Backend contact for B1-B7: Indra Araujo (backend team lead), named by the lead on 2026-10-23. Questions were drafted that day. A partial answer covering B1 and B2 question 6 was received on 2026-11-06 (see the review record). It describes the current state rather than an agreed design, so all seven remain unresolved. No values, secrets, private dumps, or real customer payloads belong here.
+Backend contact for B1-B7: **Ofon (backend team lead), the only backend owner from 2026-11-13.** Indra Araujo, named on 2026-10-23, has left the company. Questions were drafted that day. A partial answer covering B1 and B2 question 6 was received on 2026-11-06, and answers to all of B1-B7 plus the model question on 2026-11-13 (see the review record). They describe the current state and agreed policies, not a built or specified interface, so all seven remain unresolved. No values, secrets, private dumps, or real customer payloads belong here.
+
+### Lead decisions D-1 to D-6 (2026-11-13)
+
+Decided by the lead (Mani). These are proposals to agree with the backend owner, not an agreed contract, and they do not unblock T5.
+
+**D-1 Key sources.** Both `customer_managed` and `platform_managed` sources are in scope. The module already models both and never substitutes one for the other. Customer key submission, storage, ownership and lifecycle stay with the backend.
+
+**D-2 Wire format for new endpoints.** Body `{"error_code": "...", "message": "...", "request_id": "..."}`. `error_code` is one of the module's allowlisted codes; `message` is a fixed safe sentence per code; nothing from the provider, the key or the caller's identifiers is echoed. Success responses keep `result`, `model` and `file_type`, and add `total_tokens` and `provider_request_id` when the provider reported them. Existing `/process` and `/openAI` keep their current format. Implemented as the pure mapping `http_contract.to_http` by T4.6 on 2026-11-13; no route uses it yet.
+
+| `error_code` | HTTP status | Note |
+| --- | --- | --- |
+| `INVALID_INPUT`, `UNSUPPORTED_OPERATION` | 400 | Bad or unsupported input |
+| `ACCESS_DENIED` (no or unreadable service token) | 401 | Same generic message as 403 |
+| `ACCESS_DENIED` (any other denial), `CREDENTIAL_UNAVAILABLE`, `CREDENTIAL_REJECTED`, `CAPABILITY_DENIED` | 403 | No echoed IDs or record existence |
+| `RATE_LIMITED`, `QUOTA_EXCEEDED`, `CAPACITY_EXCEEDED` | 429 | Code tells provider limit from local capacity |
+| `NOT_CONFIGURED`, `PROVIDER_UNAVAILABLE` | 503 | |
+| `PROVIDER_RESPONSE_INVALID` | 502 | Outside the backend's suggested list; proposed |
+| `PROVIDER_TIMEOUT`, `OPERATION_TIMEOUT` | 504 | Outside the backend's suggested list; proposed |
+| `INTERNAL_ERROR` | 500 | |
+
+**D-3 Limits.** Overall invocation 60 seconds, equal to the backend's adapter timeout. Implemented by T4.3 on 2026-11-13: verify and admit 5 seconds each, generation and transcription calls 30 seconds each, all still capped by the remaining overall deadline. Validation stays 20 seconds.
+
+**D-4 Endpoints.** Proposed `POST /invoke` (JSON, text generation), `POST /transcribe` (multipart audio) and `POST /synthesize` (text to audio bytes). No route is registered until service authentication (B3) exists. Speech synthesis: every model on OpenAI's speech endpoint (`tts-1`, `tts-1-hd`, `gpt-4o-mini-tts` and its snapshots) shuts down on 2027-01-06 (notice 2026-10-01). The recommended replacement, `gpt-realtime-2.1-mini`, works only through the Realtime API, not the speech endpoint (OpenAI text-to-speech guide and deprecations page, read 2026-11-13). Synthesis therefore needs its own design, and probably a dependency decision, before code.
+
+**D-5 Model choice.** The backend's `model_registry` chooses the model and the signed context names it. The service accepts it only if it is an approved target for that operation; otherwise `UNSUPPORTED_OPERATION` before the key is read, with no substitution (confirmed by T4.4 tests on 2026-11-13; no code change needed). Adding a replacement model is a reviewed configuration change on both sides.
+
+**D-6 Owner.** Ofon is the only backend owner. No target dates have been given yet.
 
 ### Handoff checklist
 

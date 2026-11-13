@@ -490,3 +490,70 @@ The exact rules are in technical design L7. One accepted T2.1 test scan was narr
 | `eb581cd` | Not replayed | cleanup commit, not needed |
 
 **Still open.** An organization owner must review the two accounts' access, tokens, keys, apps and webhooks, and block force-pushes. The other branches still need their owners' review. The old branch stays frozen as evidence. Nothing here establishes production readiness, and M1 is not signed off.
+
+## Backend answers received — 2026-11-13 (B1-B7 and model question)
+
+**Source.** PDF titled "FloBrain Backend — Responses to Mani's Questions (B1–B7)", shared by Mani on 2026-11-13. It states no author or date. It repeats the 2026-11-06 answers for B1 and B2 question 6 and adds the rest. The service address it quotes is deliberately not recorded here. Answers are reported, not verified against backend code.
+
+**Reported answers.**
+
+| Question | Reported answer |
+| --- | --- |
+| B2.7 Model/operation permissions | Backend `model_registry` app (`AIModel` with supported input types and capabilities) is the right owner. No credential-to-model link exists yet; backend team to own it |
+| B2.8 Key sources in scope | **Platform-managed only.** No customer key infrastructure exists |
+| B3.9 Service authentication | Today a static `Authorization: Bearer` key over plain HTTP: no signing, expiry or request ID. Backend to add at least a short-lived signed token carrying the binding, allowed models/operations, expiry and request ID (M2 backend work) |
+| B3.10 Skew, replay, network | None today. Service is on a public address over plain HTTP. Private networking is a deployment decision for the infrastructure/deployment manager |
+| B3.11 Generic denial | Agreed: one non-revealing "access denied", no echoed IDs. Backend's own error shape is `{error, details}` |
+| B4.12 Version states | None exist. Active, pending, disabled, deleted and expired to be designed by backend; activation likely a backend admin action |
+| B4.13 Old version after rotation | Cannot confirm yet. Agreed policy: deny old-version requests, never silently upgrade |
+| B4.14 Atomic state and version read | Not possible today; to be a requirement of the credential store |
+| B4.15 In-flight requests | Agreed: a request past key fetch completes on the version it was given |
+| B4.16 Stale validation results | Agreed: backend will reject results for versions that no longer match |
+| B5.17 When to validate | Proposed: on submit and on rotation; scheduled checks later |
+| B5.18 Cost and rate limits | Product/engineering manager decides. Proposed starting limit: 1 call per credential per rotation, scheduled re-checks no more than every 24 h |
+| B5.19 Inconclusive results | Agreed: `indeterminate` stored as a result state, never treated as invalid |
+| B5.20 Stored result | Status, short reason, checked-at time, exact version, provider request ID; new backend table needed |
+| B6.21 Routes and errors | Proposed: `POST /invoke` (JSON), `POST /transcribe` (multipart), `POST /synthesize` (returns audio). Standard HTTP statuses (400, 401/403, 429, 503, 500) with body `{error_code, message}`; no provider details or key fragments |
+| B6.22 Existing callers | Backend's only `/process` caller is `MultimodalLLMAdapter.generate()` (multipart `text_input` and optional image). No backend code calls `/openAI`; its callers must be confirmed on the multimodal side. Keep `/process` until the new path is verified in staging |
+| B6.23 Usage in responses | Yes. Backend reads `result`, `model`, `file_type`, `total_tokens`; asks to add `provider_request_id` |
+| B6.24 Rollback | Backend flag `USE_CREDENTIALED_LLM` switches between old and new paths. No silent fallback: when the new path is on and fails, it fails |
+| B7.25 Concurrency and timeouts | No backend concurrency limit (Gunicorn workers). Backend adapter timeout is 60 s, below our 90 s invocation deadline; must be aligned before go-live |
+| B7.26 Upload size | Nobody enforces it before parsing today. Gateway/Nginx limit is an infrastructure task; backend adds a serializer check as second line |
+| B7.27 Logging and support | Backend logs request ID, provider, model, error code, latency, total tokens; never key fragments, full prompts or audio. Retention set by infrastructure. Backend owns Django-side errors; multimodal owns provider-adapter errors |
+| Models | Backend `model_registry` owns model choice; multimodal should not hard-code model names and should receive the model per request. Backend team lead **Ofon** will confirm replacements with product before the deprecation dates |
+
+**Checked against this repository.** `origin/main` (`1d875b8`) exposes `/health`, `/process` and `/openAI` with no `Authorization` check, and returns `total_tokens` from the OpenAI call. M1 already carries `provider_request_id` inside `UsageEntry`, but the legacy projection (`result`, `model`, `file_type`) omits it.
+
+**Decisions needed (none made here).**
+
+| ID | Decision | Why |
+| --- | --- | --- |
+| D-1 | Scope of M2: platform-managed keys only, or customer-provided keys as well | B2.8 says platform-managed only, but the requirements glossary allows both and Mani describes M2 as integrating users' keys. Changes the binding, validation and threat model |
+| D-2 | Error body: `{error_code, message}` with HTTP statuses (B6.21) versus the backend's `{error, details}` (B3.11) versus M1's `InvocationResult` with allowlisted `error_code` | The backend gave two shapes; the wire contract must name one |
+| D-3 | Timeouts: raise the backend's 60 s adapter timeout, or lower our 90 s invocation deadline | A request can be abandoned by the caller while the service still runs it |
+| D-4 | New routes `/invoke` and `/transcribe`, and whether `/synthesize` (text-to-speech) is in scope at all | Text-to-speech is not in the current requirements; OpenAI's current TTS models shut down 2027-01-06 |
+| D-5 | Model selection: backend sends the model per request; multimodal still enforces its approved target allowlist | Security invariant: no unapproved model or destination. The allowlist must gain the replacement models before the shutdown dates |
+| D-6 | Backend owner and dates: the PDF names Ofon as backend team lead, while this plan lists Indra Araujo as contact; no target dates are given | T5 needs a named owner and an interface spec with dates |
+
+**Effect.** T5 stays blocked: the credential endpoint, binding, signed token, version states and validation storage are agreed in principle but not built or specified. The agreed policies (generic denial, version denial, in-flight completion, stale validation rejection, indeterminate results, no silent fallback, logging limits) match M1's fail-closed design, so nothing in M1 changes. Existing live risks, plain HTTP on a public address and no service authentication on `main`, belong to the deployment owner and are separate from M2. No backend mechanism was invented or assumed from these answers.
+
+## Lead decisions on the backend answers — 2026-11-13
+
+Decided by the lead (Mani) in conversation on 2026-11-13. These settle the open points D-1 to D-6 above on the multimodal side; the backend owner's agreement is still needed.
+
+| ID | Decision | Effect |
+| --- | --- | --- |
+| D-1 | Users' own (customer-managed) keys are in scope as well as platform-managed keys | Backend must build customer key submission and storage; module already supports both sources without substitution |
+| D-2 | Lead accepted the recommendation: HTTP status plus `{error_code, message, request_id}` for new endpoints; existing routes unchanged | Mapping in the technical design, to agree with Ofon |
+| D-3 | Overall invocation limit 60 seconds | Card T4.3 |
+| D-4 | `/invoke`, `/transcribe` and `/synthesize` are in scope | Routes wait for service authentication; synthesis needs a Realtime API design (T3.3) |
+| D-5 | Option A: backend chooses the model, the service double-checks it against its approved list | Card T4.4 |
+| D-6 | Ofon is the only backend owner; Indra Araujo has left the company | Contacts updated |
+
+## Repository integrity update — 2026-11-13
+
+- **2026-11-06 audit of all 22 branches:** 20 were tampered with; `main` and `security/add-security-scan` showed no malware. GitHub's activity log showed 146 force-pushes from 2026-09-26 to about 2026-10-26: `rkazumovi` 118, `diogosella` 26, `mohamed-elrokapy` 2. A fourth fake font, `public/fonts/fa-solid-700.otf`, was found in history.
+- **Correction:** `mohamed-elrokapy` pushed the 2026-10-30 cleanup and the 2026-11-10 history rewrite, so it appears to be the account running the cleanup, not an attacker. Its two earlier force-pushes may also have been cleanup work. Only `rkazumovi` and `diogosella` still need review by the organization owner.
+- **2026-11-10 rewrite:** all 20 affected branches were rebuilt without the malicious files in their history. Their latest commits still carry the 20 planted `.vscode` and `public/fonts` files. The provider code on the rewritten remote branch matches `provider-integration-clean`.
+- **2026-11-13:** Mani deleted the old local branch and works on `provider-integration-clean`; 194/194 tests passed there, with no planted files on disk. Old infected objects remain inside the local Git store (stash and history log) as inert evidence.
+- **Still open:** the organization owner's review of the two accounts and a force-push block; removing the planted files from the other branches with their owners.

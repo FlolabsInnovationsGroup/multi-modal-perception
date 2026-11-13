@@ -120,7 +120,9 @@ class LimitProfile:
         return cls(**data)  # type: ignore[arg-type]
 
 
-# T1-accepted local M1 profile (L5, accepted 2026-10-23). Not a production quota.
+# T1-accepted local M1 profile (L5, accepted 2026-10-23), amended by D-3 on
+# 2026-11-13: 60 s overall to match the backend's adapter timeout, so the
+# transcription call drops from 60 s to 30 s. Not a production quota.
 LOCAL_LIMIT_PROFILE = LimitProfile(
     max_text_bytes=65_536,
     max_prompt_bytes=131_072,
@@ -128,12 +130,12 @@ LOCAL_LIMIT_PROFILE = LimitProfile(
     max_audio_bytes=10_485_760,
     max_generation_bytes=65_536,
     max_response_body_bytes=1_048_576,
-    invocation_timeout_seconds=90,
+    invocation_timeout_seconds=60,
     validation_timeout_seconds=20,
     verify_timeout_seconds=5,
     admit_timeout_seconds=5,
     generation_call_timeout_seconds=30,
-    transcription_call_timeout_seconds=60,
+    transcription_call_timeout_seconds=30,
     validation_call_timeout_seconds=15,
     connect_timeout_seconds=5,
     cleanup_timeout_seconds=2,
