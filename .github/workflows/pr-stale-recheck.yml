@@ -1,0 +1,20 @@
+name: PR stale recheck
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+jobs:
+  recheck-open-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recheck open PRs targeting main
+        run: |
+          echo "Daily backup recheck for open PRs targeting main."
+          echo "This workflow should trigger the PR Gate workflow for stale or behind-main PRs."
