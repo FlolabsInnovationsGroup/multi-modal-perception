@@ -1,7 +1,7 @@
 """Short-term service key check for the live routes.
 
 Stopgap until the service runs on HTTPS in a private network: every route except
-``/health`` requires ``Authorization: Bearer <MULTIMODAL_API_KEY>``, the key the
+``/health`` and the token-verified provider routes (``SELF_AUTHENTICATED_PATHS``) requires ``Authorization: Bearer <MULTIMODAL_API_KEY>``, the key the
 FloBrain backend already sends. It is not the M2 integration and does not
 replace HTTPS: over plain HTTP the key can still be observed on the network.
 
@@ -28,6 +28,10 @@ from typing import Awaitable, Callable, FrozenSet, Optional
 ENV_VAR = "MULTIMODAL_API_KEY"
 MIN_KEY_LENGTH = 32
 OPEN_PATHS: FrozenSet[str] = frozenset({"/health"})
+# Credentialed routes (provider integration T5, decision T5-D4): each request carries the
+# backend's signed, short-lived token in the Authorization header and is verified by those
+# routes, so the shared key check must not intercept them.
+SELF_AUTHENTICATED_PATHS: FrozenSet[str] = frozenset({"/invoke", "/transcribe", "/validate"})
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +73,8 @@ class ServiceKeyMiddleware:
         self._warned_unconfigured = False
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope.get("type") != "http" or scope.get("path") in OPEN_PATHS:
+        path = scope.get("path")
+        if scope.get("type") != "http" or path in OPEN_PATHS or path in SELF_AUTHENTICATED_PATHS:
             await self.app(scope, receive, send)
             return
         expected = _expected_key()

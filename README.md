@@ -97,7 +97,7 @@ export OPENAI_MODEL="gpt-4o-mini"
 
 ### Service authentication (short-term guard)
 
-Every route except `GET /health` requires `Authorization: Bearer <MULTIMODAL_API_KEY>`, including `/process`, `/openAI` and the `/docs`, `/redoc` and `/openapi.json` pages. The check runs before the request body is read, compares the key in constant time and never logs it.
+Every route except `GET /health` and the provider-integration routes `/invoke`, `/transcribe` and `/validate` (which verify the backend's own signed token) requires `Authorization: Bearer <MULTIMODAL_API_KEY>`, including `/process`, `/openAI` and the `/docs`, `/redoc` and `/openapi.json` pages. The check runs before the request body is read, compares the key in constant time and never logs it.
 
 - Missing, wrong or malformed key: HTTP 401 `{"detail": "Unauthorized"}`.
 - Service key not configured or weaker than 32 characters: HTTP 503, and nothing is let through.

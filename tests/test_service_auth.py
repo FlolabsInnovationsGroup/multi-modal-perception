@@ -181,6 +181,15 @@ class ServiceKeyTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn(secret, joined)
         self.assertIn("not configured", joined)
 
+    async def test_token_verified_provider_routes_are_not_intercepted(self):
+        """T5-D4: /invoke, /transcribe and /validate check the backend's signed token themselves."""
+        for path in ("/invoke", "/transcribe", "/validate"):
+            with self.subTest(path=path):
+                response = await self.post(path, headers={"Authorization": "Bearer signed.jwt.token"})
+                self.assertNotIn(response.status_code, (401, 503), "the key check must pass these through")
+        response = await self.post("/process", headers={"Authorization": "Bearer signed.jwt.token"})
+        self.assertRejected(response)
+
     def test_middleware_is_installed_on_the_app(self):
         self.assertIn(ServiceKeyMiddleware, [entry.cls for entry in main.app.user_middleware])
 
