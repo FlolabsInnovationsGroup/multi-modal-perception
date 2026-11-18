@@ -375,6 +375,28 @@ R5-R9 are recorded follow-ups (marked skipped in the review findings).
 
 Not covered: no live route, no real backend token, no real provider call. Partial usage on failed requests is not in the error body; P-1 should ask Ofon whether billing needs it. A validation endpoint mapping was not requested in B6.21 and is not built.
 
+### T5 evidence — 2026-11-18 (live connection, local)
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T5.1-T5.5, Mani. Packages approved and all buildable multimodal-side T5 work requested by Mani on 2026-11-18. Local only on `provider-integration-clean`: no push, no deployment, no real keys, no live backend |
+| Decisions applied | T5-D1 the route reads the binding from the verified token; T5-D2 `VerifiedContext.credential_token` (redacted); T5-D3 in-memory multipart parsing; T5-D4 provider routes exempt from the shared key check (on branch `fix/service-key-guard`) |
+| Packages (T5.1) | PyJWT 2.15.1, cryptography 50.0.2, cffi 2.1.1, pycparser 3.12; no known OSV vulnerabilities on 2026-11-18 |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py"` |
+| Result | **275 discovered / 275 passed / 0 failed / 0 errors / 0 skipped**, three consecutive runs (57 new tests) |
+| Mutation | Sixteen deliberate breaks detected: binding not compared, replay not tracked, token lifetime unchecked, private JWKS keys accepted, reader skips binding check, uploads may spill to disk, body read before token check, non-finite times, `nbf` after `exp`, encryption-use keys, duplicate `kid`s, no key age limit, transport trusting the environment, reuse checked after reading, deep JSON crash, no in-flight cap. Three tests first missed their break and were strengthened |
+| Independent review | Independent security review on 2026-11-18 found no high-severity issue; its six confirmed findings (non-finite time claims, body read before reuse/kind check, deep-JSON 500, environment TLS settings, stale JWKS during outages, JWK use and duplicate kids) were fixed with tests, and the secret-in-exception-context note was fixed. Per-process replay scope is recorded as a backend dependency |
+| Test fixes | `test_overall_deadline` gained a 1 ns float margin (coarse Windows clock; not a code change). Two M1 static rules were updated for the one deliberate route file `api/provider_routes.py` |
+
+| Card | Files | Result |
+| --- | --- | --- |
+| T5.2 token checker | `live/config.py`, `live/_http.py`, `live/verifier.py`, `types.py`; `test_live_verifier.py` | ES256 only; issuer, audience, required claims, 90 s lifetime, 30 s skew, kind, exact binding and targets; JWKS fetched with the service secret, cached, one rate-limited re-fetch on an unknown `kid` (covers C-1); private keys ignored; per-process replay refusal |
+| T5.3 key reader | `live/reader.py`; `test_live_reader.py` | Posts the verified token to `/internal/credentials/resolve`; strict reply schema; binding must match; 401/403 -> ACCESS_DENIED, other failures -> CREDENTIAL_UNAVAILABLE; key held in `SecretValue`; no cache, retry or fallback |
+| T5.4 routes | `api/provider_routes.py`, `main.py`, `http_contract.py`; `test_live_routes.py` | `/invoke`, `/transcribe`, `/validate`; token verified before the body is read; bodies capped; uploads parsed in memory (no temporary files, checked); D-2 responses; 503 NOT_CONFIGURED without settings; legacy routes unchanged |
+| T5.5 checks | `test_import_safety.py`, `test_handler.py`, `test_limits.py` | Live modules import without reading the environment; only `api/provider_routes.py` reaches the module |
+
+Not covered: no real backend, HTTPS, staging settings or OpenAI call. Values for `iss`/`aud` and the resolve reply shape follow the proposal until Ofon confirms C-3 and C-4.
+
 ### Documentation revision evidence
 
 Scope revision and CODEX handoff were authorized by the requesting user on 2026-09-18. Review disposition: [Indra review resolution](review-record.md). Current documents are ready for team review; acceptance of their detailed wording/contract is pending.

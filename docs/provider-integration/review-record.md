@@ -591,3 +591,13 @@ Decided by the lead (Mani) in conversation on 2026-11-13. These settle the open 
 | C-7 | Test evidence for the backend items, beyond `manage.py check` | Joint tests should start from tested components |
 
 **Effect.** Backend dependencies for T5 are reported in place. T5 can be planned now against synthetic tokens and a fake credential endpoint that follow this contract. It needs approval for the PyJWT and `cryptography` dependencies. Nothing live starts until HTTPS and private networking exist (O-9) and the clarifications are answered.
+
+## T5 decisions and approvals — 2026-11-18
+
+- **Packages.** Mani approved PyJWT 2.15.1, cryptography 50.0.2, cffi 2.1.1 and pycparser 3.12 (checked against PyPI release dates and OSV on 2026-11-18).
+- **Scope.** Mani asked for all buildable multimodal-side work to be finished without further prompts, followed by a plain-language report. Push, pull requests, merges, deployment, AWS changes and real keys remained excluded.
+- **T5-D1.** The route reads the binding from the token after full verification; the handler is unchanged and re-verifies it.
+- **T5-D2.** `VerifiedContext` gained `credential_token`, a redacted `SecretValue` excluded from repr and equality, so the reader can present the token to the backend.
+- **T5-D3.** `/transcribe` parses multipart bodies in memory with the installed `python-multipart`; the framework's disk spooling is never used.
+- **T5-D4.** The short-term key check exempts `/invoke`, `/transcribe` and `/validate`, which verify the backend's signed token instead.
+- **Independent review.** Independent security review on 2026-11-18 found no high-severity issue; its six confirmed findings (non-finite time claims, body read before reuse/kind check, deep-JSON 500, environment TLS settings, stale JWKS during outages, JWK use and duplicate kids) were fixed with tests, and the secret-in-exception-context note was fixed. Per-process replay scope is recorded as a backend dependency

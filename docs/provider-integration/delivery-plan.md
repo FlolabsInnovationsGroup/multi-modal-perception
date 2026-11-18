@@ -10,7 +10,8 @@ Current state (2026-10-23): T1 L1-L8 accepted.
 - **T4.2 and review fix F1 accepted by Mani on 2026-10-23** (no independent reviewer). R1-R4 fixed; full suite **194/194** in `.venv`; R5-R9 are recorded follow-ups. T4.1, T4.2 and F1 are committed locally together (not pushed).
 - **Still to do:** the M1 sign-off decision (not yet given). M2 stays blocked on B1-B7.
 - **2026-11-13:** backend answers to B1-B7 received and lead decisions D-1 to D-6 recorded (review record).
-- **2026-11-15:** backend (Ofon) answered all P-1 questions and reports B-1 to B-7 built. T5 can be planned; staging waits for HTTPS and private networking. Work continues on local branch `provider-integration-clean`. Ofon is the only backend owner; Indra Araujo has left.
+- **2026-11-15:** backend (Ofon) answered all P-1 questions and reports B-1 to B-7 built. T5 can be planned; staging waits for HTTPS and private networking.
+- **2026-11-18:** T5 implemented and tested locally (live token checker, key reader, `/invoke`, `/transcribe`, `/validate`). The multimodal side is complete up to staging. A separate branch `fix/service-key-guard` adds the short-term `MULTIMODAL_API_KEY` check for the live service; it waits for the secret to be provisioned. Work continues on local branch `provider-integration-clean`. Ofon is the only backend owner; Indra Araujo has left.
 Authority: [feature PRD](requirements.md), [AGENTS](../../AGENTS.md).
 
 ## Verified baseline
@@ -42,6 +43,7 @@ Recheck this baseline before coding; it is not a permanent description of the re
 | Feature code, dependency changes, live credentials, deployment, Git writes | Not approved by documentation approval | Obtain task/action-specific approvals |
 | M1 implementation-specification completion | User approved the documentation-only plan on 2026-09-19 | Specify L1-L8, task slices, tests and handoff locally; no code, Notion update or Git writes |
 | Coordination corrections C1-C3 | Requesting user (core owner) instructed and approved the documentation-only update on 2026-10-16 | C1 parallel T2/T3 tracks after a reviewed T2.1 checkpoint; C2 split validation tests; C3 old-version denial after rotation. Not T1 acceptance; no code, Git writes or installs |
+| T5 packages and scope | Mani approved PyJWT 2.15.1, cryptography 50.0.2, cffi 2.1.1 and pycparser 3.12 on 2026-11-18, and asked for all buildable multimodal-side T5 work without further prompts | Installed in `.venv` and pinned; T5.1-T5.5 built locally; no push, deployment or real keys |
 | Lead decisions D-1 to D-6 | Lead (Mani) decided in conversation on 2026-11-13 after the backend answers | Both key sources, D-2 error format, 60 s limit, three endpoints, double-checked model choice, Ofon as backend owner. Each code change needs its own card approval |
 
 Indra's comments dated August 15 and September 6 are review input; do not label this rewritten package as approved by her.
@@ -56,7 +58,7 @@ Assign a human owner before starting a task. Role labels below are suggested res
 | T2 | Synthetic provider-module scaffold and contract tests; integration engineer | T1 approves local scope; task edit plan approved | In progress: T2.1 accepted and shared 2026-10-23; Core track complete: T2.1, T2.2 and T2.3 accepted 2026-10-23 (Mani); T2.2/T2.3 committed locally, not pushed | Fake credential reader and fake provider, safe typed results, denial tests; no external I/O |
 | T3 | First provider adapter and validation mapping using mocked transport; provider engineer | T1 accepted and the T2.1 checkpoint implemented, tested and reviewed; may then run alongside T2.2/T2.3; chosen provider and methods reviewed; dependency action approved if needed | In progress: **taken over by Mani 2026-10-23**; draft cherry-picked as `6050f9b`; Complete: T3.1 and T3.2 accepted 2026-10-23 (Mani; no independent reviewer); committed locally, not pushed | Provider-specific unit tests, bounded calls, usage/error mapping, request-scoped client cleanup |
 | T4 | Processing-path integration behind a fail-closed boundary; integration engineer + QA | T2 and T3 both pass review and are combined; local handler contract/compatibility assumptions approved in T1; no exposed API change | Complete: T4.1, T4.2 and review fix F1 accepted 2026-10-23 (Mani; no independent reviewer); committed locally, not pushed; R5-R9 follow-ups | Text/audio parity, preserved fields, no shared-key/cache/echo path in new flow, local fail-closed handler and bypass tests; externally reachable integration deferred to T5/T6 |
-| T5 | Implement actual backend reader and service authentication; backend liaison + integration engineer | B1-B7 resolved and approved; needed dependencies/access separately approved | Ready to plan, not started: backend reports B-1 to B-7 built (2026-11-15). Needs clarifications C-1 to C-7, approval of the PyJWT and `cryptography` dependencies, and HTTPS plus private networking before any staging test | Contract tests against approved backend environment; credential scope/version/state and denial evidence |
+| T5 | Implement actual backend reader and service authentication; backend liaison + integration engineer | B1-B7 resolved and approved; needed dependencies/access separately approved | **Implemented locally 2026-11-18** (T5.1-T5.5, evidence below). Live use waits for HTTPS and private networking (O-9), staging settings, Ofon's answers to C-1 to C-7, and push/merge/deploy approvals | Contract tests against approved backend environment; credential scope/version/state and denial evidence |
 | T6 | End-to-end security, regression, limits, and operational checks; QA + backend owner | T4/T5 complete; approved staging-only credential use | Not started | Test plan passes; security findings addressed; enablement/release checklist accepted |
 | T7 | Controlled enablement and handoff; lead + operations owner | T6 evidence accepted; separate deployment approval | Not started | Monitored limited rollout, safe rollback exercise, caller migration and release decision |
 
@@ -142,6 +144,28 @@ Local only, on `provider-integration-clean`. No route is registered, no real key
 | T4.6 | D-2, B6.23 | Pure mapping from module results to HTTP status and body, with `total_tokens` and `provider_request_id`; no route registered | Mapping tests for every error code; leakage tests on bodies |
 | T3.3 | D-4 | Speech-synthesis design note: Realtime API approach, dependency needs, limits and tests. No code. **Deferred to future work by Mani on 2026-11-13; not part of this feature or its pull request. Draft kept: [speech synthesis design](speech-synthesis-design.md)** | Design note reviewed; any dependency change proposed separately |
 | P-1 | D-1 to D-6 | M2 interface proposal for Ofon: signed context claims, credential endpoint request and response, states, error mapping, limits. **Shared 2026-11-13; backend answered all of O-1 to O-11 on 2026-11-15 (review record). Clarifications C-1 to C-7 open** | Document shared by Mani; Ofon's dated answers recorded |
+
+### T5 evidence — 2026-11-18 (live connection, local)
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T5.1-T5.5, Mani. Packages approved and all buildable multimodal-side T5 work requested by Mani on 2026-11-18. Local only on `provider-integration-clean`: no push, no deployment, no real keys, no live backend |
+| Decisions applied | T5-D1 the route reads the binding from the verified token; T5-D2 `VerifiedContext.credential_token` (redacted); T5-D3 in-memory multipart parsing; T5-D4 provider routes exempt from the shared key check (on branch `fix/service-key-guard`) |
+| Packages (T5.1) | PyJWT 2.15.1, cryptography 50.0.2, cffi 2.1.1, pycparser 3.12; no known OSV vulnerabilities on 2026-11-18 |
+| Command | `.venv\Scripts\python -m unittest discover -s tests/provider_integration -p "test_*.py"` |
+| Result | **275 discovered / 275 passed / 0 failed / 0 errors / 0 skipped**, three consecutive runs (57 new tests) |
+| Mutation | Sixteen deliberate breaks detected: binding not compared, replay not tracked, token lifetime unchecked, private JWKS keys accepted, reader skips binding check, uploads may spill to disk, body read before token check, non-finite times, `nbf` after `exp`, encryption-use keys, duplicate `kid`s, no key age limit, transport trusting the environment, reuse checked after reading, deep JSON crash, no in-flight cap. Three tests first missed their break and were strengthened |
+| Independent review | Independent security review on 2026-11-18 found no high-severity issue; its six confirmed findings (non-finite time claims, body read before reuse/kind check, deep-JSON 500, environment TLS settings, stale JWKS during outages, JWK use and duplicate kids) were fixed with tests, and the secret-in-exception-context note was fixed. Per-process replay scope is recorded as a backend dependency |
+| Test fixes | `test_overall_deadline` gained a 1 ns float margin (coarse Windows clock; not a code change). Two M1 static rules were updated for the one deliberate route file `api/provider_routes.py` |
+
+| Card | Files | Result |
+| --- | --- | --- |
+| T5.2 token checker | `live/config.py`, `live/_http.py`, `live/verifier.py`, `types.py`; `test_live_verifier.py` | ES256 only; issuer, audience, required claims, 90 s lifetime, 30 s skew, kind, exact binding and targets; JWKS fetched with the service secret, cached, one rate-limited re-fetch on an unknown `kid` (covers C-1); private keys ignored; per-process replay refusal |
+| T5.3 key reader | `live/reader.py`; `test_live_reader.py` | Posts the verified token to `/internal/credentials/resolve`; strict reply schema; binding must match; 401/403 -> ACCESS_DENIED, other failures -> CREDENTIAL_UNAVAILABLE; key held in `SecretValue`; no cache, retry or fallback |
+| T5.4 routes | `api/provider_routes.py`, `main.py`, `http_contract.py`; `test_live_routes.py` | `/invoke`, `/transcribe`, `/validate`; token verified before the body is read; bodies capped; uploads parsed in memory (no temporary files, checked); D-2 responses; 503 NOT_CONFIGURED without settings; legacy routes unchanged |
+| T5.5 checks | `test_import_safety.py`, `test_handler.py`, `test_limits.py` | Live modules import without reading the environment; only `api/provider_routes.py` reaches the module |
+
+Not covered: no real backend, HTTPS, staging settings or OpenAI call. Values for `iss`/`aud` and the resolve reply shape follow the proposal until Ofon confirms C-3 and C-4.
 
 ### T4.3-T4.6 evidence — 2026-11-13
 

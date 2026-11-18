@@ -503,6 +503,31 @@ Decided by the lead (Mani). These are proposals to agree with the backend owner,
 
 **D-6 Owner.** Ofon is the only backend owner. No target dates have been given yet.
 
+### Live connection as built (T5, 2026-11-18)
+
+Local implementation of the P-1 contract as answered on 2026-11-15. Values the backend has not yet confirmed (C-3 `iss`/`aud`, C-4 resolve reply) are settings or strict parsing, never guesses.
+
+**Settings (all required; otherwise the routes answer 503 `NOT_CONFIGURED` and never reach a key).**
+
+| Variable | Meaning |
+| --- | --- |
+| `FLOBRAIN_BACKEND_URL` | Backend origin, `https://` only, no path |
+| `MULTIMODAL_SERVICE_SECRET` | Shared service secret for the JWKS and resolve endpoints (interim, O-4); at least 32 characters |
+| `CREDENTIAL_JWT_ISSUER`, `CREDENTIAL_JWT_AUDIENCE` | Exact `iss` and `aud` values (C-3) |
+| `PROVIDER_APPROVED_TARGETS` | Approved models (D-5), for example `generate_text:gpt-4o-mini,transcribe_audio:gpt-4o-mini-transcribe` |
+
+**Request flow.** The route takes exactly one `Authorization: Bearer` token, fully verifies it (ES256 only, issuer, audience, required claims, lifetime at most 90 s, skew 30 s) and checks that it is for this route's kind and not already used, before reading the body; at most 8 requests per process are in flight (429 `CAPACITY_EXCEEDED` beyond that); it then reads the body with a cap (JSON 512 KiB; multipart audio limit plus 256 KiB, parsed in memory). The handler verifies the token again and records its `jti` (per-process replay refusal), the orchestrator checks the approved targets, and the reader posts the token to `/internal/credentials/resolve` with the service secret. The reply must have exactly `binding`, `state`, `permitted_targets` and `key`, and its binding must equal the token's. One provider operation runs; the key is discarded.
+
+**Public keys.** JWKS is fetched from `/internal/jwks/` with the service secret, cached for 5 minutes, and re-fetched at most once every 10 seconds when an unknown `kid` appears. If a refresh fails, the last good keys stay usable for at most 10 minutes after the last successful fetch, then every token is refused. Only EC P-256 signing keys for ES256 are used; private key material, `use` other than `sig`, and documents with duplicate `kid`s are refused. Time claims must be finite numbers in order (`nbf` and `iat` before `exp`).
+
+**Backend calls.** HTTPS to the configured host and the two agreed paths only, no redirects, no proxy, certificate or other environment settings (client and transport), identity encoding, 64 KiB reply cap, 4 s timeout, no retries. Reply bodies are never logged.
+
+**Errors.** Missing, invalid or unverifiable token (including a JWKS outage): 401. Valid token that is reused or for another route: 403. Other denials, including a backend 401/403 or a binding mismatch: 403 `ACCESS_DENIED`. Backend 404/409/5xx, timeout or malformed reply: `CREDENTIAL_UNAVAILABLE` (403, same generic message). Bad bodies: 400 `INVALID_INPUT`. Validation results: 200 with `status`, `reason_code`, `checked_at`, `credential_version`, `provider_request_id`, `request_id`.
+
+**Known limits.** Replay refusal here is per process; single use across workers and instances relies on the backend's resolve endpoint (to confirm with Ofon). The route reads the binding from the token itself, so the handler's "requested equals verified" comparison is not a second, independent control.
+
+**Coexistence with the short-term key check.** Branch `fix/service-key-guard` protects every other route with `MULTIMODAL_API_KEY` and exempts these three routes (T5-D4).
+
 ### Handoff checklist
 
 - [ ] Lead and backend owner agree B1-B7 and exact schemas/transport.
