@@ -90,7 +90,7 @@ Status evaluated 2026-10-23. An item is ticked only where it is actually true.
 - [x] Adapter exercised via mocked transport, not merely replaced entirely by a fake; installed versions recorded. *(Real SDK over `httpx.MockTransport`; versions in the environment section.)*
 - [x] New module imports without secrets/network; existing unauthenticated routes not connected to it. *(`test_import_safety.py`.)*
 - [x] Exact backend handoff B1-B7, legacy risks, provider/live limitations and next approvals documented. *(Delivery plan: M1 handoff package.)*
-- [ ] Human reviewer/date/commit or working-tree checkpoint recorded. No inference of live/production readiness. *(Pending M1 sign-off.)*
+- [x] Human reviewer/date/commit or working-tree checkpoint recorded. No inference of live/production readiness. *(Signed off by Mani (lead, owner and reviewer) on 2026-11-18 at commit `918d7e4` on `provider-integration-clean`; 275/275 offline tests on Python 3.12.10. No independent human reviewer; R5-R9 kept as low-severity follow-ups. This is not live or production readiness. The Python 3.11/3.12 re-run condition is met: the full suite has run on 3.12.10 since 2026-10-23.)*
 
 ## Documentation-only revision checks
 

@@ -601,3 +601,11 @@ Decided by the lead (Mani) in conversation on 2026-11-13. These settle the open 
 - **T5-D3.** `/transcribe` parses multipart bodies in memory with the installed `python-multipart`; the framework's disk spooling is never used.
 - **T5-D4.** The short-term key check exempts `/invoke`, `/transcribe` and `/validate`, which verify the backend's signed token instead.
 - **Independent review.** Independent security review on 2026-11-18 found no high-severity issue; its six confirmed findings (non-finite time claims, body read before reuse/kind check, deep-JSON 500, environment TLS settings, stale JWKS during outages, JWK use and duplicate kids) were fixed with tests, and the secret-in-exception-context note was fixed. Per-process replay scope is recorded as a backend dependency
+
+## M1 sign-off — 2026-11-18
+
+**Decision.** Signed off by Mani (lead, owner and reviewer) on 2026-11-18 at commit `918d7e4` on `provider-integration-clean`; 275/275 offline tests on Python 3.12.10. No independent human reviewer; R5-R9 kept as low-severity follow-ups. This is not live or production readiness.
+
+**Basis.** Every other item on the M1 checklist (acceptance tests) was already met: T1-T4.2 and fix F1 accepted, all fourteen local test cases covered, no credential cross-use, fallback, stored content or leakage in tested paths, the adapter exercised over a mocked transport, import safety, and the backend handoff documented. The sign-off also covers the later local work at the same commit: T4.3-T4.6, T5.1-T5.5 and the merged short-term service key check.
+
+**Not implied.** The feature is not live, not tested against a real backend or provider, and not production-ready. M2 (T6 staging and T7 release) remains.

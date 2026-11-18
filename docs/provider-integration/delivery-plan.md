@@ -8,7 +8,7 @@ Current state (2026-10-23): T1 L1-L8 accepted.
 - **T3 complete:** T3.1 and T3.2 implemented and accepted by Mani on 2026-10-23, committed locally together (not pushed; no independent reviewer).
 - **T4.1 implemented and accepted by Mani on 2026-10-23** (uncommitted; no independent reviewer).
 - **T4.2 and review fix F1 accepted by Mani on 2026-10-23** (no independent reviewer). R1-R4 fixed; full suite **194/194** in `.venv`; R5-R9 are recorded follow-ups. T4.1, T4.2 and F1 are committed locally together (not pushed).
-- **Still to do:** the M1 sign-off decision (not yet given). M2 stays blocked on B1-B7.
+- **M1 signed off 2026-11-18.** Signed off by Mani (lead, owner and reviewer) on 2026-11-18 at commit `918d7e4` on `provider-integration-clean`; 275/275 offline tests on Python 3.12.10. No independent human reviewer; R5-R9 kept as low-severity follow-ups. This is not live or production readiness.
 - **2026-11-13:** backend answers to B1-B7 received and lead decisions D-1 to D-6 recorded (review record).
 - **2026-11-15:** backend (Ofon) answered all P-1 questions and reports B-1 to B-7 built. T5 can be planned; staging waits for HTTPS and private networking.
 - **2026-11-18:** T5 implemented and tested locally (live token checker, key reader, `/invoke`, `/transcribe`, `/validate`). The multimodal side is complete up to staging. A separate branch `fix/service-key-guard` adds the short-term `MULTIMODAL_API_KEY` check for the live service; it waits for the secret to be provisioned. That branch is also merged into `provider-integration-clean` (2026-11-18), so the feature branch is tested with both together; `fix/service-key-guard` can still go to `main` first on its own. Work continues on local branch `provider-integration-clean`. Ofon is the only backend owner; Indra Araujo has left.
@@ -616,8 +616,7 @@ After these review decisions, no additional product/architecture invention shoul
 
 ### M1 handoff package — 2026-10-23
 
-**Status.** The local multimodal module (T2.1-T4.2) is implemented and tested offline (194/194). **M1 sign-off is pending.** It needs:
-- the lead's M1 sign-off decision (T1-T4.2 and F1 are accepted; R5-R9 are recorded low-severity follow-ups).
+**Status.** The local multimodal module (T2.1-T4.2) is implemented and tested offline (194/194 at the time). **M1 signed off on 2026-11-18:** Signed off by Mani (lead, owner and reviewer) on 2026-11-18 at commit `918d7e4` on `provider-integration-clean`; 275/275 offline tests on Python 3.12.10. No independent human reviewer; R5-R9 kept as low-severity follow-ups. This is not live or production readiness.
 
 The T1 leftovers were settled on 2026-10-23: TC tables accepted; backend contact Indra Araujo (backend team lead).
 
@@ -664,7 +663,7 @@ There was no independent reviewer. Nothing here is live, backend or production e
 **Next approvals**
 1. Done 2026-10-23: the lead accepted T4.2 and review fix F1 (R1-R4 fixed); R5-R9 remain follow-ups to schedule.
 2. Commit/push of T4.1-T4.2 (Git approval).
-3. M1 sign-off.
+3. Done 2026-11-18: M1 signed off by Mani at `918d7e4`.
 4. Republishing the Notion mirror (external publish).
 5. M2 starts only after B1-B7 are answered and approved.
 

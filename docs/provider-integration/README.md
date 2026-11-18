@@ -1,6 +1,6 @@
 # Provider Integration — Start Here
 
-V2 / revision 2.1 · 2026-09-19 · status updated 2026-10-23: **M1 local module implemented (T2.1-T4.2) and tested offline; T1-T4.2 and review fix F1 accepted; M1 sign-off pending; AI review findings R1-R4 fixed, R5-R9 follow-ups; live integration (M2) blocked on B1-B7.**
+V2 / revision 2.1 · 2026-09-19 · status updated 2026-11-18: **M1 signed off by Mani at `918d7e4` (multimodal module complete, tested offline, 275/275). The live connection (T5) is built and tested locally; staging (T6) waits for HTTPS, private networking and backend settings. R5-R9 remain low-severity follow-ups. Not production-ready.**
 
 Publication status: the earlier consolidated package is published under Notion V2. This local revision 2.1 has NOT been republished; Notion currently shows the preceding revision. Publication evidence is recorded in the review record. Feature implementation and Indra's acceptance remain pending.
 
