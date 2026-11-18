@@ -5,6 +5,9 @@ pydantic==2.6.1
 openai>=1.0.0,<2.0.0
 python-dotenv==1.0.1
 python-multipart==0.0.27
+# Backend signed-token verification (T5, approved 2026-11-18)
+PyJWT==2.15.1
+cryptography==50.0.2
 
 # GPU cloud benchmark (RunPod / Vast.ai)
 requests>=2.28.0
