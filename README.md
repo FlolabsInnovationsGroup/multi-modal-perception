@@ -20,7 +20,9 @@ Local revision 2.1 now specifies the module architecture, internal types, OpenAI
 | --- | --- |
 | `main.py` | FastAPI setup; mounts health/process/OpenAI routers |
 | `api/health.py` | Health route |
-| `api/process.py`, `api/openAI.py` | Multipart text/audio processing, no implemented service authentication |
+| `api/process.py`, `api/openAI.py` | Multipart text/audio processing; protected only by the short-term `MULTIMODAL_API_KEY` check below |
+| `api/service_auth.py` | Short-term service key check for every route except `/health` and the provider routes |
+| `api/provider_routes.py` | Provider-integration routes `/invoke`, `/transcribe`, `/validate`, verified by the backend's signed token |
 | `services/openai_service.py` | Process-global AsyncOpenAI client/key, transcription and text generation, prompt-only response cache, echo on generation failure |
 | `schemas.py` | Response requires `result`, `model`, and `file_type` |
 | `minicpm_test_case/` | Evaluation/test scripts, including image/audio/GPU-related work; not BYOK acceptance coverage |
@@ -29,6 +31,14 @@ Local revision 2.1 now specifies the module architecture, internal types, OpenAI
 Both processing routes accept optional `text_input` and `audio_file`; at least one non-empty input is required. Audio is transcribed before generation. Returned `file_type` is text or audio for these routes; schema enumeration also includes image/video but these routes do not thereby implement those inputs.
 
 Known risks: shared credential-bearing client, cross-request content cache, raw exception logging, unbounded audio read, and successful-looking input echo on provider failure. These must not become the new credential path. No production-ready BYOK or backend-auth integration is claimed.
+
+## Service authentication (short-term guard)
+
+Every route except `GET /health` and the provider routes `/invoke`, `/transcribe` and `/validate` requires `Authorization: Bearer <MULTIMODAL_API_KEY>`, including `/process`, `/openAI` and the `/docs`, `/redoc` and `/openapi.json` pages. The check runs before the request body is read, compares the key in constant time and never logs it. A missing or wrong key returns 401; if `MULTIMODAL_API_KEY` is not set or is shorter than 32 characters, the protected routes return 503 and nothing is let through. The provider routes verify the backend's own signed token instead.
+
+This is a stopgap until the service runs on HTTPS in a private network: over plain HTTP the key can still be observed. Before deploying, the same value must be stored as a secret for this service and set as the backend's `MULTIMODAL_API_KEY`, or the backend's requests will be refused.
+
+Tests (offline, synthetic keys): `python -m unittest discover -s tests -p "test_service_auth.py"`
 
 ## Local environment
 

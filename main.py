@@ -10,6 +10,7 @@ import logging
 from dotenv import load_dotenv
 
 from api import health, openAI, process, provider_routes
+from api.service_auth import ServiceKeyMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,6 +21,10 @@ app = FastAPI(
     description="Foundation for multimodal perception system",
     version="0.1.0"
 )
+
+# Short-term guard: every route except /health and the token-verified provider routes
+# (/invoke, /transcribe, /validate) needs the backend's MULTIMODAL_API_KEY.
+app.add_middleware(ServiceKeyMiddleware)
 
 app.include_router(health.router, tags=["System"])
 app.include_router(process.router, tags=["Perception"])

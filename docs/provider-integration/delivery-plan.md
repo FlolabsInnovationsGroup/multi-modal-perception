@@ -11,7 +11,7 @@ Current state (2026-10-23): T1 L1-L8 accepted.
 - **Still to do:** the M1 sign-off decision (not yet given). M2 stays blocked on B1-B7.
 - **2026-11-13:** backend answers to B1-B7 received and lead decisions D-1 to D-6 recorded (review record).
 - **2026-11-15:** backend (Ofon) answered all P-1 questions and reports B-1 to B-7 built. T5 can be planned; staging waits for HTTPS and private networking.
-- **2026-11-18:** T5 implemented and tested locally (live token checker, key reader, `/invoke`, `/transcribe`, `/validate`). The multimodal side is complete up to staging. A separate branch `fix/service-key-guard` adds the short-term `MULTIMODAL_API_KEY` check for the live service; it waits for the secret to be provisioned. Work continues on local branch `provider-integration-clean`. Ofon is the only backend owner; Indra Araujo has left.
+- **2026-11-18:** T5 implemented and tested locally (live token checker, key reader, `/invoke`, `/transcribe`, `/validate`). The multimodal side is complete up to staging. A separate branch `fix/service-key-guard` adds the short-term `MULTIMODAL_API_KEY` check for the live service; it waits for the secret to be provisioned. That branch is also merged into `provider-integration-clean` (2026-11-18), so the feature branch is tested with both together; `fix/service-key-guard` can still go to `main` first on its own. Work continues on local branch `provider-integration-clean`. Ofon is the only backend owner; Indra Araujo has left.
 Authority: [feature PRD](requirements.md), [AGENTS](../../AGENTS.md).
 
 ## Verified baseline
