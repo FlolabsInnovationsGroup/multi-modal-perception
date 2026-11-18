@@ -609,3 +609,13 @@ Decided by the lead (Mani) in conversation on 2026-11-13. These settle the open 
 **Basis.** Every other item on the M1 checklist (acceptance tests) was already met: T1-T4.2 and fix F1 accepted, all fourteen local test cases covered, no credential cross-use, fallback, stored content or leakage in tested paths, the adapter exercised over a mocked transport, import safety, and the backend handoff documented. The sign-off also covers the later local work at the same commit: T4.3-T4.6, T5.1-T5.5 and the merged short-term service key check.
 
 **Not implied.** The feature is not live, not tested against a real backend or provider, and not production-ready. M2 (T6 staging and T7 release) remains.
+
+## Security package update — 2026-11-18
+
+**Finding.** GitHub reported five Dependabot alerts on `main` (python-multipart 0.0.27: one high, three low; python-dotenv 1.0.1: one moderate). An OSV check of the installed packages also found Starlette 0.36.3 (pulled in by FastAPI 0.109.2) with three high, three moderate and one low advisory, mostly about crafted uploads and forms overloading the service. Mani's account cannot open the Dependabot page, so the alerts were reproduced independently.
+
+**Decision.** Mani approved a trial in a throwaway environment and then the upgrade: fastapi 0.162.0, starlette 1.10.0, uvicorn 0.54.0, pydantic 2.14.2, python-dotenv 1.2.4, python-multipart 0.0.33, requests>=2.34.2, and the indirect annotated-doc 0.0.5 and typing-inspection 0.4.4 (pinned to releases at least two weeks old). All had no known OSV vulnerability on 2026-11-18.
+
+**Evidence.** Trial and project environments: provider suite 275/275, service key check 12/12, new old-route smoke tests (`tests/test_legacy_routes.py`) passing with the same results as before the upgrade; `pip check` clean.
+
+**Not done.** Push, pull request and merge to `main` (a production deployment) need separate approval.

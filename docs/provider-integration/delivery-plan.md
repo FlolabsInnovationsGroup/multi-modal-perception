@@ -8,6 +8,7 @@ Current state (2026-10-23): T1 L1-L8 accepted.
 - **T3 complete:** T3.1 and T3.2 implemented and accepted by Mani on 2026-10-23, committed locally together (not pushed; no independent reviewer).
 - **T4.1 implemented and accepted by Mani on 2026-10-23** (uncommitted; no independent reviewer).
 - **T4.2 and review fix F1 accepted by Mani on 2026-10-23** (no independent reviewer). R1-R4 fixed; full suite **194/194** in `.venv`; R5-R9 are recorded follow-ups. T4.1, T4.2 and F1 are committed locally together (not pushed).
+- **2026-11-18 security update:** packages upgraded to fix the five Dependabot alerts on `main` and the Starlette 0.36.3 advisories (branch `fix/dependency-security`, merged here). Verified first in a throwaway environment: 275/275, 12/12 and the new old-route smoke tests pass, with identical old-route behavior.
 - **M1 signed off 2026-11-18.** Signed off by Mani (lead, owner and reviewer) on 2026-11-18 at commit `918d7e4` on `provider-integration-clean`; 275/275 offline tests on Python 3.12.10. No independent human reviewer; R5-R9 kept as low-severity follow-ups. This is not live or production readiness.
 - **2026-11-13:** backend answers to B1-B7 received and lead decisions D-1 to D-6 recorded (review record).
 - **2026-11-15:** backend (Ofon) answered all P-1 questions and reports B-1 to B-7 built. T5 can be planned; staging waits for HTTPS and private networking.
@@ -43,6 +44,7 @@ Recheck this baseline before coding; it is not a permanent description of the re
 | Feature code, dependency changes, live credentials, deployment, Git writes | Not approved by documentation approval | Obtain task/action-specific approvals |
 | M1 implementation-specification completion | User approved the documentation-only plan on 2026-09-19 | Specify L1-L8, task slices, tests and handoff locally; no code, Notion update or Git writes |
 | Coordination corrections C1-C3 | Requesting user (core owner) instructed and approved the documentation-only update on 2026-10-16 | C1 parallel T2/T3 tracks after a reviewed T2.1 checkpoint; C2 split validation tests; C3 old-version denial after rotation. Not T1 acceptance; no code, Git writes or installs |
+| Security package update | Mani approved the trial (2026-11-18) and then applying fastapi 0.162.0, starlette 1.10.0, uvicorn 0.54.0, pydantic 2.14.2, python-dotenv 1.2.4, python-multipart 0.0.33, annotated-doc 0.0.5, typing-inspection 0.4.4 and requests>=2.34.2 | Branch `fix/dependency-security` from `main`, also merged here; project `.venv` updated; not pushed or deployed |
 | T5 packages and scope | Mani approved PyJWT 2.15.1, cryptography 50.0.2, cffi 2.1.1 and pycparser 3.12 on 2026-11-18, and asked for all buildable multimodal-side T5 work without further prompts | Installed in `.venv` and pinned; T5.1-T5.5 built locally; no push, deployment or real keys |
 | Lead decisions D-1 to D-6 | Lead (Mani) decided in conversation on 2026-11-13 after the backend answers | Both key sources, D-2 error format, 60 s limit, three endpoints, double-checked model choice, Ofon as backend owner. Each code change needs its own card approval |
 
