@@ -25,6 +25,10 @@ MODULES = (
     "services.provider_integration.handler",
     "services.provider_integration.http_contract",
     "services.provider_integration.wiring",
+    "services.provider_integration.live",
+    "services.provider_integration.live.config",
+    "services.provider_integration.live.verifier",
+    "services.provider_integration.live.reader",
     "services.provider_integration.adapters",
     "services.provider_integration.adapters.openai",
 )
@@ -107,21 +111,27 @@ class ImportSafetyTests(unittest.TestCase):
                 self.assertNotIn("APIRouter", names)
 
     def test_legacy_routes_unchanged_and_disconnected(self):
-        """Static check (E2): the three existing routes remain; nothing reaches the new module."""
+        """Static check (E2, amended by T5.4 on 2026-11-18): the three existing routes remain and never
+        reach the new module; only api/provider_routes.py may import it, and it adds exactly the three
+        credentialed routes."""
         main = ast.parse((REPO_ROOT / "main.py").read_text(encoding="utf-8"))
         included = sorted(ast.unparse(node.args[0]) for node in ast.walk(main)
                           if isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "include_router")
-        self.assertEqual(included, ["health.router", "openAI.router", "process.router"])
+        self.assertEqual(included, ["health.router", "openAI.router", "process.router", "provider_routes.router"])
         routes = {}
         for path in sorted((REPO_ROOT / "api").glob("*.py")):
             source = path.read_text(encoding="utf-8")
-            self.assertNotIn("provider_integration", source)
+            if path.name != "provider_routes.py":
+                self.assertNotIn("provider_integration", source)
             for node in ast.walk(ast.parse(source)):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     for decorator in node.decorator_list:
                         if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
                             routes[(decorator.func.attr, ast.literal_eval(decorator.args[0]))] = path.name
-        self.assertEqual(set(routes), {("get", "/health"), ("post", "/process"), ("post", "/openAI")})
+        self.assertEqual(set(routes), {("get", "/health"), ("post", "/process"), ("post", "/openAI"),
+                                       ("post", "/invoke"), ("post", "/transcribe"), ("post", "/validate")})
+        self.assertEqual({path for key, path in routes.items() if key[1] in ("/invoke", "/transcribe", "/validate")},
+                         {"provider_routes.py"})
         self.assertNotIn("provider_integration", (REPO_ROOT / "main.py").read_text(encoding="utf-8"))
 
 

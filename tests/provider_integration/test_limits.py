@@ -173,7 +173,9 @@ class DeadlineTests(unittest.IsolatedAsyncioTestCase):
         started = loop.time() - FAST_LIMITS.invocation_timeout_seconds + 0.03  # 30 ms left < 100 ms call limit
         result = await h.orchestrator.invoke(h.context(), h.text_request(), started_at=started)
         await self.assertTimedOut(h, result, ErrorCode.OPERATION_TIMEOUT)
-        self.assertLessEqual(h.adapter.calls_for("generate_text")[0].remaining_seconds, 0.03)
+        # 1 ns margin: with a coarse Windows monotonic clock "now" can equal the setup instant,
+        # and float subtraction at large clock values can exceed 0.03 by ~1e-12 (2026-11-18).
+        self.assertLessEqual(h.adapter.calls_for("generate_text")[0].remaining_seconds, 0.03 + 1e-9)
 
         h = Harness(limits=FAST_LIMITS)
         result = await h.orchestrator.invoke(h.context(), h.text_request(), started_at=loop.time() - 10)

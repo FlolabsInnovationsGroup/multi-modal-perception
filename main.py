@@ -9,7 +9,7 @@ import logging
 
 from dotenv import load_dotenv
 
-from api import health, openAI, process
+from api import health, openAI, process, provider_routes
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,6 +24,9 @@ app = FastAPI(
 app.include_router(health.router, tags=["System"])
 app.include_router(process.router, tags=["Perception"])
 app.include_router(openAI.router, tags=["OpenAI"])
+# Credentialed routes (T5): /invoke, /transcribe, /validate. Each request needs the
+# backend's signed token; without live settings they answer 503 and never use a key.
+app.include_router(provider_routes.router, tags=["Provider integration"])
 
 if __name__ == "__main__":
     import uvicorn

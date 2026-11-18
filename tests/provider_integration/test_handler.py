@@ -362,7 +362,11 @@ class NoBypassTests(HandlerTestCase):
             for token in ("os.environ", "getenv", "dotenv", "fakes", "tests.", "fastapi", "APIRouter", "transport="):
                 with self.subTest(file=name, token=token):
                     self.assertNotIn(token, source)
+        # T5.4 (2026-11-18): api/provider_routes.py is the one deliberate route into the module;
+        # every legacy route and main.py itself must still stay disconnected from it.
         for path in [REPO_ROOT / "main.py", *sorted((REPO_ROOT / "api").glob("*.py"))]:
+            if path.name == "provider_routes.py":
+                continue
             with self.subTest(legacy=path.name):
                 self.assertNotIn("provider_integration", path.read_text(encoding="utf-8"))
 

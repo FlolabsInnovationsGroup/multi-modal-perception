@@ -21,12 +21,16 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Dict, Optional, Tuple, Union
 
+from datetime import timezone
+
 from services.provider_integration.errors import ErrorCode
 from services.provider_integration.types import (
     BoundaryFailure,
     InvocationResult,
     Operation,
     Outcome,
+    ValidationResult,
+    new_request_id,
 )
 
 ERROR_FIELDS = frozenset({"error_code", "message", "request_id"})
@@ -106,6 +110,45 @@ def to_http(
         "model": result.model,  # type: ignore[union-attr]
         "file_type": result.file_type.value,  # type: ignore[union-attr]
         "total_tokens": total_tokens,
+        "provider_request_id": provider_request_id,
+        "request_id": result.request_id,
+    }
+
+
+VALIDATION_FIELDS = frozenset(
+    {"status", "reason_code", "checked_at", "credential_version", "provider_request_id", "request_id"}
+)
+
+
+def error_response(code: ErrorCode) -> Tuple[int, Body]:
+    """Status and body for a failure that happens before any result exists (for example
+    NOT_CONFIGURED when the service lacks its live settings). Uses a new request ID."""
+    if not isinstance(code, ErrorCode):
+        raise TypeError("code must be an ErrorCode")
+    return _error(code, new_request_id(), STATUS_BY_CODE[code])
+
+
+def validation_to_http(
+    result: Union[ValidationResult, BoundaryFailure], *, service_auth_missing: bool = False
+) -> Tuple[int, Body]:
+    """Return ``(status, body)`` for a validation outcome (P-1 section 5, B5.20 fields).
+
+    A completed check is 200 whatever its status (valid, rejected or indeterminate);
+    only boundary failures use the error format.
+    """
+    if isinstance(result, BoundaryFailure):
+        return to_http(result, service_auth_missing=service_auth_missing)
+    if not isinstance(result, ValidationResult):
+        raise TypeError("result must be a ValidationResult or BoundaryFailure")
+    if service_auth_missing:
+        raise ValueError("service_auth_missing applies only to ACCESS_DENIED")
+    provider_request_id = next((u.provider_request_id for u in result.usage if u.provider_request_id), None)
+    checked_at = result.checked_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return 200, {
+        "status": result.status.value,
+        "reason_code": result.reason_code.value if result.reason_code is not None else None,
+        "checked_at": checked_at,
+        "credential_version": result.binding.credential_version,
         "provider_request_id": provider_request_id,
         "request_id": result.request_id,
     }

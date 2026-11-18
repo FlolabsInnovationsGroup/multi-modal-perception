@@ -208,13 +208,19 @@ class Target:
 
 @dataclass(frozen=True)
 class VerifiedContext:
-    """Context returned only by the injected ContextVerifier after verification."""
+    """Context returned only by the injected ContextVerifier after verification.
+
+    ``credential_token`` (T5-D2) is the verified backend token, kept only so a live
+    CredentialReader can present it to the backend's credential endpoint. It is
+    redacted, excluded from repr and equality, and never serialized.
+    """
 
     binding: Binding
     request_id: str
     kind: ContextKind
     allowed_targets: FrozenSet[Target]
     expires_at: datetime
+    credential_token: Optional["SecretValue"] = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         _require_instance(self.binding, Binding, "binding")
@@ -222,6 +228,8 @@ class VerifiedContext:
         _require_instance(self.kind, ContextKind, "kind")
         _require_target_set(self.allowed_targets, "allowed_targets")
         _require_utc(self.expires_at, "expires_at")
+        if self.credential_token is not None:
+            _require_instance(self.credential_token, SecretValue, "credential_token")
 
     def is_expired(self, now: datetime) -> bool:
         _require_utc(now, "now")
