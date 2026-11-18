@@ -48,6 +48,7 @@ This microservice integrates directly with the OpenAI Chat Completions API using
 Before starting the server, set at least:
 
 - **`OPENAI_API_KEY`**: Your OpenAI API key.
+- **`MULTIMODAL_API_KEY`**: Service key the FloBrain backend sends as `Authorization: Bearer <key>`. At least 32 ASCII characters, with no surrounding spaces. Without a valid value, every route except `/health` returns 503 (see Service authentication below).
 
 Optional tuning (all have sensible defaults):
 
@@ -61,6 +62,7 @@ Example (Unix/macOS):
 
 ```bash
 export OPENAI_API_KEY="sk-..."
+export MULTIMODAL_API_KEY="<same random value the backend sends>"
 export OPENAI_MODEL="gpt-4o-mini"
 ```
 
@@ -79,7 +81,7 @@ export OPENAI_MODEL="gpt-4o-mini"
 | File / concept        | Role |
 |-----------------------|------|
 | `main.py`             | Application entry: FastAPI app, router registration, logging, and `uvicorn.run` when executed directly. |
-| `api/`                | API module: `health.py` (GET /health), `process.py` (POST /process), `openAI.py` (POST /openAI). Keeps routes modular and testable. |
+| `api/`                | API module: `health.py` (GET /health), `process.py` (POST /process), `openAI.py` (POST /openAI), `service_auth.py` (service key check for every route except /health). Keeps routes modular and testable. |
 | `schemas.py`          | Pydantic models for typed API structures (currently used for response validation via `PerceptionOutput`). |
 | `requirements.txt`    | Pinned dependencies (FastAPI, Uvicorn, Pydantic) for reproducible installs. |
 | `POST /process`       | Main trigger: accepts `multipart/form-data` with `text_input` and `audio_file`, returns JSON with `result` (OpenAI response or stub). |
@@ -92,6 +94,17 @@ export OPENAI_MODEL="gpt-4o-mini"
 2. **Process:** `POST /process` with `multipart/form-data` fields `text_input` and `audio_file` → audio is transcribed first, then `{"result": "<OpenAI response>"}`.  
    Any unhandled exception in the handler returns HTTP 500 with a generic error message; logs contain the real error for debugging.
 3. **OpenAI:** `POST /openAI` with the same `multipart/form-data` shape (`text_input` and/or `audio_file`; at least one required) → `{"result": "<OpenAI response>"}`. Missing both fields returns HTTP 422.
+
+### Service authentication (short-term guard)
+
+Every route except `GET /health` requires `Authorization: Bearer <MULTIMODAL_API_KEY>`, including `/process`, `/openAI` and the `/docs`, `/redoc` and `/openapi.json` pages. The check runs before the request body is read, compares the key in constant time and never logs it.
+
+- Missing, wrong or malformed key: HTTP 401 `{"detail": "Unauthorized"}`.
+- Service key not configured or weaker than 32 characters: HTTP 503, and nothing is let through.
+
+This is a stopgap until the service runs on HTTPS in a private network. Over plain HTTP the key can still be observed on the network. Before deploying, the same value must be stored as a secret for this service and set as the backend's `MULTIMODAL_API_KEY`, or the backend's requests will be refused.
+
+Tests (offline, synthetic keys): `python -m unittest discover -s tests -p "test_service_auth.py"`
 
 ### Logging
 
