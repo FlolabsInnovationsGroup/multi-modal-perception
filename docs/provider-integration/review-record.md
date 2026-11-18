@@ -557,3 +557,37 @@ Decided by the lead (Mani) in conversation on 2026-11-13. These settle the open 
 - **2026-11-10 rewrite:** all 20 affected branches were rebuilt without the malicious files in their history. Their latest commits still carry the 20 planted `.vscode` and `public/fonts` files. The provider code on the rewritten remote branch matches `provider-integration-clean`.
 - **2026-11-13:** Mani deleted the old local branch and works on `provider-integration-clean`; 194/194 tests passed there, with no planted files on disk. Old infected objects remain inside the local Git store (stash and history log) as inert evidence.
 - **Still open:** the organization owner's review of the two accounts and a force-push block; removing the planted files from the other branches with their owners.
+
+## Backend response to the P-1 interface proposal — 2026-11-15
+
+**Source.** Page "M2 Backend Response: Answers and What's Built", dated 2026-11-15, from Ofon (FloBrain backend), shared by Mani on 2026-11-17. Reported, not verified against backend code; the page cites `manage.py check`, not tests.
+
+**Reported built (backend `keys` app and updated `MultimodalLLMAdapter`).**
+
+| Item | Reported |
+| --- | --- |
+| B-1 Token | ES256 JWT from `keys/token_service.py`; claims `iss`, `aud`, `iat`, `nbf`, `exp` (90 s), `jti` (UUID4), `kind`, five-field `binding`, `targets`; signing key from environment |
+| B-2 Credential endpoint | `POST /internal/credentials/resolve`; verifies the token and state, single use per `jti` and kind, decrypts and returns the key within 5 s; caller authenticated with a shared service secret |
+| B-3 Storage | `ProviderCredential` and `CredentialVersion`; states active, pending, disabled, deleted, expired; AES-256-GCM encryption; old version refused once a new one is active |
+| B-4 Users' keys | `POST /api/keys/` (stored encrypted as pending, never returned), `GET /api/keys/`, `DELETE /api/keys/{id}/` (disables all versions) |
+| B-5 Validation | `CredentialValidation` stores status, reason code, time, version, provider request ID and request ID |
+| B-6 Models | `model_registry` seeded with `gpt-4o-mini` and `gpt-4o-mini-transcribe` |
+| B-7 Caller | `USE_CREDENTIALED_LLM=true` switches `/process` to `/invoke`; token per request; 60 s timeout; `provider_request_id` stored; no silent fallback |
+
+**Answers.** O-1 ES256 (agreed). O-2 protected JWKS at `/internal/jwks/` with `kid` (agreed; rotation steps given). O-3 90 s and 30 s (agreed). O-4 interim shared bearer secret to the resolve and JWKS endpoints, mutual TLS later (interim). O-5 images not needed for M2; `/invoke` sends text only (confirmed). O-6 `/transcribe` transcribes then replies, no transcript returned (agreed). O-7 no usage in error bodies; reconcile from `provider_request_id` (agreed). O-8 users' keys built. O-9 HTTPS and private networking belong to the infrastructure owner; no name or date yet (open). O-10 replacement models added at least 4 weeks before each shutdown, reminders 2026-12-14 and 2027-01-26, Mani notified (tracked). O-11 B-1 to B-3 done, staging after deploy and environment setup (done).
+
+**Urgent item.** The backend acknowledged the unauthenticated public HTTP service, is escalating private networking to the infrastructure owner, and asks multimodal to enforce `MULTIMODAL_API_KEY` on the current routes as a short-term guard. That change touches `main`, which deploys to production, so it needs its own task and approvals.
+
+**Clarifications needed (multimodal review, 2026-11-17).**
+
+| ID | Point | Why it matters |
+| --- | --- | --- |
+| C-1 | The rotation steps switch the signing key and drop the old public key at the same moment, with "wait 90 s" after the switch | Tokens signed just before the switch fail verification, and tokens with the new `kid` fail until multimodal re-fetches. Proposed: publish the new public key first, switch signing, remove the old key after 90 s; multimodal re-fetches once on an unknown `kid` |
+| C-2 | Stale validation results are described as refused "at the credential endpoint (409)" | The proposal meant the backend refuses to store a result for a version that changed. Confirm both rules |
+| C-3 | Exact `iss` and `aud` strings, and the exact `kind` and `targets` formats | Multimodal must match them exactly |
+| C-4 | Exact JSON of a successful resolve response, with a synthetic example | Needed to build the reader and contract tests |
+| C-5 | How a pending user key becomes active after a `valid` result, and who does it | Invocation accepts only active versions |
+| C-6 | Whether company (platform) keys are stored as `ProviderCredential` with source `platform`, and how tokens name them | Both sources are in scope (D-1) |
+| C-7 | Test evidence for the backend items, beyond `manage.py check` | Joint tests should start from tested components |
+
+**Effect.** Backend dependencies for T5 are reported in place. T5 can be planned now against synthetic tokens and a fake credential endpoint that follow this contract. It needs approval for the PyJWT and `cryptography` dependencies. Nothing live starts until HTTPS and private networking exist (O-9) and the clarifications are answered.

@@ -464,17 +464,17 @@ No secret, secret fragment, raw provider body on error, SDK object, authorizatio
 
 | ID | Question / required artifact | Blocking point | Status |
 | --- | --- | --- | --- |
-| B1 | Actual protected storage schema/interface; direct scoped DB read or backend-mediated retrieval; encryption/decryption and least-privilege access owner | Real credential-reader implementation | Unresolved: 2026-11-13 answer: nothing exists yet; endpoint agreed in principle; backend blocker |
-| B2 | Source and schema of trusted scope/credential/provider binding; support for customer/platform sources; authorization policy ownership | Live request contract | Unresolved: 2026-11-13 answer: binding to be designed; backend has platform-managed keys only; lead decided both sources are in scope (D-1) |
-| B3 | Service authentication, request integrity, expiry/replay handling, network exposure, secret-free failure responses | Any externally reachable BYOK path | Unresolved: 2026-11-13 answer: signed short-lived token planned, format not specified |
-| B4 | Lifecycle states, version identifiers, activation ownership, atomic admission/disable/rotation ordering, stale validation result handling | Live lifecycle correctness | Unresolved: 2026-11-13 answer: policies agreed, no versioning built |
-| B5 | When validation is requested; approved check per operation, rate/cost limits, timeout/retry budget, and result persistence | Live validation | Unresolved: 2026-11-13 answer: triggers and storage proposed, not built |
-| B6 | Existing consumers; exact route/transport and error status mapping; response compatibility, usage fields, migration and rollback | Exposed API changes / T5-T7; T4 uses reviewed local assumptions only | Unresolved: lead decided D-2, D-4, D-5 on 2026-11-13; backend agreement pending |
-| B7 | Input/upload/concurrency limits; content-spooling and telemetry controls; approved metadata retention and support owner | Integration/release safety | Unresolved: lead decided D-3 (60 s) on 2026-11-13; upload gateway and retention owners pending |
+| B1 | Actual protected storage schema/interface; direct scoped DB read or backend-mediated retrieval; encryption/decryption and least-privilege access owner | Real credential-reader implementation | Reported built by backend 2026-11-15; verification pending joint tests |
+| B2 | Source and schema of trusted scope/credential/provider binding; support for customer/platform sources; authorization policy ownership | Live request contract | Reported built 2026-11-15; `iss`/`aud` values and platform-key storage to confirm |
+| B3 | Service authentication, request integrity, expiry/replay handling, network exposure, secret-free failure responses | Any externally reachable BYOK path | Reported built 2026-11-15; JWKS rotation overlap to fix; HTTPS and private network not yet owned |
+| B4 | Lifecycle states, version identifiers, activation ownership, atomic admission/disable/rotation ordering, stale validation result handling | Live lifecycle correctness | Reported built 2026-11-15; activation of pending keys to confirm |
+| B5 | When validation is requested; approved check per operation, rate/cost limits, timeout/retry budget, and result persistence | Live validation | Reported built 2026-11-15; stale-result rule to confirm |
+| B6 | Existing consumers; exact route/transport and error status mapping; response compatibility, usage fields, migration and rollback | Exposed API changes / T5-T7; T4 uses reviewed local assumptions only | Agreed 2026-11-15 |
+| B7 | Input/upload/concurrency limits; content-spooling and telemetry controls; approved metadata retention and support owner | Integration/release safety | Agreed 2026-11-15 except infrastructure items (O-9) |
 
 For each decision record: owner, dated answer, reviewed specification link, approving people, and acceptance tests.
 
-Backend contact for B1-B7: **Ofon (backend team lead), the only backend owner from 2026-11-13.** Indra Araujo, named on 2026-10-23, has left the company. Questions were drafted that day. A partial answer covering B1 and B2 question 6 was received on 2026-11-06, and answers to all of B1-B7 plus the model question on 2026-11-13 (see the review record). They describe the current state and agreed policies, not a built or specified interface, so all seven remain unresolved. No values, secrets, private dumps, or real customer payloads belong here.
+Backend contact for B1-B7: **Ofon (backend team lead), the only backend owner from 2026-11-13.** Indra Araujo, named on 2026-10-23, has left the company. Questions were drafted that day. A partial answer covering B1 and B2 question 6 was received on 2026-11-06, and answers to all of B1-B7 plus the model question on 2026-11-13 (see the review record). They describe the current state and agreed policies, not a built or specified interface, so all seven remain unresolved. On 2026-11-15 the backend answered the P-1 interface proposal and reported B-1 to B-7 built (review record); the register above reflects that, pending joint contract tests. No values, secrets, private dumps, or real customer payloads belong here.
 
 ### Lead decisions D-1 to D-6 (2026-11-13)
 
