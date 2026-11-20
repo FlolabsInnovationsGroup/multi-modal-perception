@@ -2,7 +2,7 @@
 
 Python microservice that will serve as the foundation for a **multimodal perception system** (vision, language, dialogue). The service is built as a single, loosely coupled application suitable for later deployment as part of a larger suite of services.
 
-Currently, it also acts as a lightweight event-driven service that receives text plus an audio file and returns an OpenAI-generated text response, using a highly optimized, lightweight client.
+The service accepts text and audio for OpenAI-generated perception responses and exposes standalone speech-to-text and text-to-speech endpoints.
 
 ### Project Architecture
 
@@ -11,7 +11,8 @@ Currently, it also acts as a lightweight event-driven service that receives text
         │   ├── __init__.py      # Marks the directory as a Python package
         │   ├── health.py        # Contains system health check routes
         │   ├── openAI.py        # Contains POST /openAI (OpenAI-backed responses)
-        │   └── process.py       # Contains the main perception trigger routes
+        │   ├── process.py       # Contains the main perception trigger routes
+        │   └── speech.py        # Contains POST /transcribe and POST /synthesize
         ├── main.py              # The central application orchestrator
         ├── schemas.py           # The single source of truth for data structures
         ├── services/            # Service layer (e.g., OpenAI integration)
@@ -53,6 +54,8 @@ Optional tuning (all have sensible defaults):
 
 - **`OPENAI_MODEL`**: Defaults to `gpt-4o-mini`.
 - **`OPENAI_TRANSCRIBE_MODEL`**: Defaults to `gpt-4o-mini-transcribe`.
+- **`OPENAI_TTS_MODEL`**: Defaults to `gpt-4o-mini-tts`.
+- **`OPENAI_TTS_VOICE`**: Defaults to `alloy`.
 - **`OPENAI_MAX_TOKENS`**: Defaults to `256`.
 - **`OPENAI_TEMPERATURE`**: Defaults to `0.4`.
 - **`OPENAI_SYSTEM_PROMPT`**: Custom system prompt for the multimodal perception assistant.
@@ -96,6 +99,27 @@ export OPENAI_MODEL="gpt-4o-mini"
 ### Logging
 
 - Standard library `logging` is configured at INFO in `main.py`.
+
+### Speech API
+
+FloBrain can proxy these endpoints to CAIPO. Keep Bearer-token authentication in FloBrain.
+
+**`POST /transcribe`** accepts raw audio file bytes up to 25 MB and returns JSON such as `{"text":"Hello from CAIPO."}`. Set the matching media type for WAV, FLAC, MP3/MPEG, MP4/M4A, Ogg, or WebM. The service treats an omitted content type or `application/octet-stream` as WAV. Empty or unreadable audio returns HTTP 422, oversized audio returns 413, and unsupported media types return 415.
+
+```bash
+curl --fail-with-body http://localhost:8000/transcribe \
+  -H 'Content-Type: audio/wav' \
+  --data-binary @sample.wav
+```
+
+**`POST /synthesize`** accepts JSON with a nonblank `text` field of up to 4,096 characters after trimming. It returns `audio/wav` with 16 kHz mono 16-bit PCM audio. Label playback in CAIPO as AI-generated speech.
+
+```bash
+curl --fail-with-body http://localhost:8000/synthesize \
+  -H 'Content-Type: application/json' \
+  --data '{"text":"Hello from CAIPO."}' \
+  --output speech.wav
+```
 
 ### Dataset (separate)
 

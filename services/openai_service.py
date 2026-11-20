@@ -1,8 +1,10 @@
 import asyncio
+import audioop
 import io
 import logging
 import os
 import time
+import wave
 from typing import Dict, Optional
 
 from openai import AsyncOpenAI
@@ -11,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe")
 MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "256"))
 TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.4"))
 
@@ -88,10 +89,19 @@ class UltraFastOpenAIService:
         audio_stream.name = filename
 
         transcript = await self._client.audio.transcriptions.create(
-            model=TRANSCRIBE_MODEL,
+            model=os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe"),
             file=audio_stream,
         )
         return (transcript.text or "").strip()
+
+    async def synthesize_speech(self, text: str) -> bytes:
+        response = await self._client.audio.speech.create(
+            model=os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts"),
+            voice=os.getenv("OPENAI_TTS_VOICE", "alloy"),
+            input=text,
+            response_format="wav",
+        )
+        return _normalize_speech_wav(response.content)
 
     async def generate_multimodal_response(
         self,
@@ -113,6 +123,29 @@ class UltraFastOpenAIService:
             user_message = normalized_text
 
         return await self.generate_response(user_message)
+
+
+def _normalize_speech_wav(audio: bytes) -> bytes:
+    with wave.open(io.BytesIO(audio), "rb") as source:
+        channels = source.getnchannels()
+        sample_width = source.getsampwidth()
+        sample_rate = source.getframerate()
+        frames = source.readframes(source.getnframes())
+
+    if channels not in (1, 2) or sample_width != 2:
+        raise ValueError("Expected 16-bit mono or stereo PCM from speech provider.")
+    if not frames or len(frames) % (channels * sample_width):
+        raise ValueError("Speech provider returned incomplete PCM frames.")
+    if channels == 2:
+        frames = audioop.tomono(frames, sample_width, 0.5, 0.5)
+    if sample_rate != 16000:
+        frames, _ = audioop.ratecv(frames, sample_width, 1, sample_rate, 16000, None)
+
+    output = io.BytesIO()
+    with wave.open(output, "wb") as target:
+        target.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
+        target.writeframes(frames)
+    return output.getvalue()
 
 
 _ultra_fast_service: Optional[UltraFastOpenAIService] = None
