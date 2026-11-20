@@ -1,94 +1,57 @@
 # Automated PR review process
 
-Every pull request targeting `main` is reviewed by:
+Every pull request targeting `main` is reviewed by two workflow jobs:
 
-1. Automatic checks
-2. Claude AI review
-3. Human approval
+1. `Automatic checks`
+2. `Claude AI review`
 
-A person still gives the final approval. The automated review reports,
-explains, and blocks unsafe changes; it never merges a pull request by itself.
+A person gives the final approval. The workflows do not contain a human-approval job, and they cannot merge a pull request.
 
-## Why this matters
-
-Every push or merge to `main` can trigger the repository’s deployment
-workflow, `.github/workflows/deploy.yml`. Therefore, changes should not
-reach `main` without passing the required checks and receiving human approval.
+Merging to `main` runs `.github/workflows/deploy.yml`. Branch protection has to require the two checks above and a human approval before that deploy can happen. Adding these workflow files does not enable branch protection by itself.
 
 ## Automatic checks
 
-The `Automatic checks` job runs:
+The `Automatic checks` job always runs:
 
-- Repository tests
-- Secret scanning
-- Malware and unsafe-file scanning
+- A Gitleaks scan of the pull request’s commits, with secret values redacted
+- The read-only malware and unsafe-file scanner
+- The unit tests for that scanner
 
-It fails if tests fail, secrets are detected, or suspicious files are found.
+Project dependencies are installed and project tests run only when the pull request contains one of:
+
+- A `Makefile` target named `test`
+- `pytest.ini`
+- `tox.ini`
+- A pytest section in `setup.cfg`
+- `[tool.pytest` in `pyproject.toml`
+
+This repository currently has `requirements.txt` and none of those test entry points. The job posts the notice `Project tests skipped` and does not install project dependencies. Scanner tests still run.
+
+The job uses `contents: read`, checks the code out with `persist-credentials: false`, and clears the GitHub token before it runs scans, installs, or tests.
 
 ## Claude AI review
 
-Claude reads the pull-request changes and posts:
+Claude posts:
 
-- A reviewer briefing comment
+- One `# AI Reviewer Briefing` comment
 - Inline comments on specific issues
-- A final verdict: `PASS`, `PASS WITH COMMENTS`, or `FAIL`
+- A final line of `Verdict: PASS`, `Verdict: PASS WITH COMMENTS`, or `Verdict: FAIL`
 
-Claude does not merge or approve pull requests.
+The workflow fails the `Claude AI review` job when the newest matching briefing is missing, does not end with one of those lines, or ends with `Verdict: FAIL`. `Verdict: PASS` and `Verdict: PASS WITH COMMENTS` pass.
 
-The review checks for:
+Claude is instructed to review only. The workflow denies shell, edit, write, agent, and web tools. Claude is not given permission to merge, approve, push, commit, run repository code, install dependencies, or read secrets. Pull-request text is untrusted data.
 
-- Secrets, API keys, tokens, credentials, and private keys
-- Malware indicators
-- Unexpected `.vscode/tasks.json` or auto-run tasks
-- Fake font files
-- Unexpected scripts or dependencies
-- Unsafe command execution
-- Changes that violate `AGENTS.md` or `docs/provider-integration/`
-- Missing tests for consequential changes
+The job reads the pull request with `contents: read` and can comment with `pull-requests: write` and `issues: write`.
 
 ## Human approval
 
-At least one teammate who did not write the code must approve the pull request.
+Human approval is a GitHub branch-protection setting on `main`, not a workflow job.
 
-Human approval is enforced through GitHub branch protection, not by Claude.
-
-## Reviewer briefing
-
-Claude posts one briefing comment on every pull request. It explains:
-
-- What the code does
-- Which files it changes
-- How the new or changed code works
-- Whether it follows project rules
-- What safety checks were performed
-- What risks need manual review
-- The final verdict
-
-Claude also leaves inline comments on specific lines where it finds problems.
+The repository owner enables it. At least one teammate who did not write the change must approve the pull request. GitHub does not count the author’s own approval.
 
 ## Review rules
 
-Claude’s review rules are stored in:
+Claude’s briefing format lives in:
 
 ```text
 .claude/review-instructions.md
-```
-
-The team can improve those rules through a normal pull request.
-
-## Daily backup recheck
-
-The `PR stale recheck` workflow runs daily as a backup.
-
-It rechecks open pull requests that are stale or behind `main`. The primary
-review still runs immediately when a pull request is opened, updated, or
-reopened.
-
-## Security rules
-
-- Pull-request code is treated as untrusted data.
-- The workflow uses the `pull_request` event, not `pull_request_target`.
-- Claude does not execute repository code or access secrets.
-- API keys and tokens must be stored only in GitHub encrypted secrets.
-- Prompt-injection attempts inside a pull request must not change the review verdict.
-- No pull request should be merged without human approval.

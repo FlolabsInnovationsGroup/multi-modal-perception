@@ -7,14 +7,104 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
-  checks: write
 
 jobs:
-  recheck-open-prs:
+  identify-stale-prs:
+    name: Identify stale pull requests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
-      - name: Recheck open PRs targeting main
+      - name: Comment on stale or behind pull requests
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STALE_DAYS: "7"
         run: |
-          echo "Daily backup recheck for open PRs targeting main."
-          echo "This workflow should trigger the PR Gate workflow for stale or behind-main PRs."
+          set -euo pipefail
+          export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          from datetime import datetime, timedelta, timezone
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          stale_days = int(os.environ["STALE_DAYS"])
+          marker = "<!-- pr-stale-recheck -->"
+          cutoff = datetime.now(timezone.utc) - timedelta(days=stale_days)
+
+          def gh(*args: str) -> str:
+              return subprocess.check_output(["/usr/bin/gh", *args], text=True)
+
+          listed = json.loads(gh(
+              "pr", "list",
+              "--repo", repo,
+              "--base", "main",
+              "--state", "open",
+              "--limit", "200",
+              "--json", "number,title,url,updatedAt,headRefOid,isDraft",
+          ))
+
+          def load_comments(number: int) -> list:
+              raw = gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{number}/comments?per_page=100")
+              items = []
+              for page in json.loads(raw):
+                  items.extend(page)
+              return items
+
+          for pr in listed:
+              number = pr["number"]
+              updated = datetime.fromisoformat(pr["updatedAt"].replace("Z", "+00:00"))
+              compare = json.loads(gh(
+                  "api",
+                  f"repos/{repo}/compare/main...{pr['headRefOid']}",
+              ))
+              status = compare.get("status") or "unknown"
+              behind_by = int(compare.get("behind_by") or 0)
+              is_behind = status in {"behind", "diverged"} or behind_by > 0
+              is_stale = updated < cutoff
+              reasons = []
+              if is_stale:
+                  reasons.append(f"no update since {pr['updatedAt']}")
+              if is_behind:
+                  reasons.append(f"{behind_by} commit(s) behind main (status: {status})")
+
+              existing = None
+              for comment in load_comments(number):
+                  user = (comment.get("user") or {}).get("login")
+                  if user == "github-actions[bot]" and marker in (comment.get("body") or ""):
+                      existing = comment
+
+              if not reasons:
+                  if existing is not None:
+                      body = (
+                          f"{marker}\n"
+                          "This pull request is currently updated and not behind main. "
+                          "This notice does not approve, merge, or block the pull request."
+                      )
+                      gh("api", "-X", "PATCH", f"repos/{repo}/issues/comments/{existing['id']}", "-f", f"body={body}")
+                  continue
+
+              body = "\n".join([
+                  marker,
+                  "Daily stale recheck: this open pull request targeting main needs attention.",
+                  "",
+                  f"- Pull request: {pr['url']}",
+                  f"- Title: {pr['title']}",
+                  f"- Draft: {pr['isDraft']}",
+                  *[f"- Reason: {reason}" for reason in reasons],
+                  "",
+                  "This workflow does not approve, merge, or block. Merging is controlled by branch protection on main.",
+              ])
+              if existing is None:
+                  gh("api", "-X", "POST", f"repos/{repo}/issues/{number}/comments", "-f", f"body={body}")
+              else:
+                  gh("api", "-X", "PATCH", f"repos/{repo}/issues/comments/{existing['id']}", "-f", f"body={body}")
+
+          print(f"Checked {len(listed)} open pull request(s) targeting main.")
+          print("This workflow does not block merges.")
+          PY
