@@ -1,0 +1,4 @@
+# Require maintainer review for CI, security, and AI review configuration
+/.github/ @mohamed-elrokapy @manibasiir-ux
+/.claude/ @mohamed-elrokapy @manibasiir-ux
+/.github/CODEOWNERS @mohamed-elrokapy @manibasiir-ux
