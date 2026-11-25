@@ -54,22 +54,47 @@ def _number(value: object) -> Optional[float]:
     return None
 
 
+MAX_CREDENTIAL_VERSION = 10 ** 12
+
+
+def _version_text(value: object) -> str:
+    """T5.6: the backend sends credential_version as a whole number (C-4, 2026-11-22).
+    It is kept internally as its decimal text, so the token and the resolve reply are
+    compared in one canonical form. Text, booleans, decimals, zero and negatives are refused."""
+    if type(value) is not int or not 1 <= value <= MAX_CREDENTIAL_VERSION:
+        raise _deny()
+    return str(value)
+
+
 def parse_binding_claim(value: object) -> Binding:
     if not isinstance(value, Mapping) or set(value) != _BINDING_FIELDS:
         raise _deny()
     source = value["credential_source"]
     if type(source) is not str:
         raise _deny()
+    version = _version_text(value["credential_version"])
     try:
         return Binding(
             scope_id=value["scope_id"],
             credential_ref=value["credential_ref"],
-            credential_version=value["credential_version"],
+            credential_version=version,
             credential_source=CredentialSource(source),
             provider=value["provider"],
         )
     except (TypeError, ValueError):
         raise _deny() from None
+
+
+def requested_binding_fields(value: object) -> Mapping[str, str]:
+    """The binding claim in the plain-text form the handler parses (T5-D1, T5.6)."""
+    binding = parse_binding_claim(value)
+    return {
+        "scope_id": binding.scope_id,
+        "credential_ref": binding.credential_ref,
+        "credential_version": binding.credential_version,
+        "credential_source": binding.credential_source.value,
+        "provider": binding.provider,
+    }
 
 
 def parse_targets_claim(value: object) -> FrozenSet[Target]:

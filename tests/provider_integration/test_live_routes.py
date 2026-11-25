@@ -262,7 +262,7 @@ class ValidateTests(RouteTestCase):
         self.assertEqual(response.status_code, 200, response.text)
         body = response.json()
         self.assertEqual((body["status"], body["reason_code"], body["credential_version"], body["request_id"]),
-                         ("valid", None, "v1", "req-validate-1"))
+                         ("valid", None, 1, "req-validate-1"))  # numeric, as the backend stores it
         self.assertTrue(body["checked_at"].endswith("Z"))
         self.assertEqual([call.operation for call in rig.adapter.calls], ["validate_access"])
 

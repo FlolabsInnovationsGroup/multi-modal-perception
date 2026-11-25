@@ -144,11 +144,13 @@ def validation_to_http(
         raise ValueError("service_auth_missing applies only to ACCESS_DENIED")
     provider_request_id = next((u.provider_request_id for u in result.usage if u.provider_request_id), None)
     checked_at = result.checked_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    version = result.binding.credential_version
     return 200, {
         "status": result.status.value,
         "reason_code": result.reason_code.value if result.reason_code is not None else None,
         "checked_at": checked_at,
-        "credential_version": result.binding.credential_version,
+        # T5.6: returned as a number when it is one, as the backend stores versions (C-4).
+        "credential_version": int(version) if version.isdigit() else version,
         "provider_request_id": provider_request_id,
         "request_id": result.request_id,
     }

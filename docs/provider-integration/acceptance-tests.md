@@ -375,6 +375,18 @@ R5-R9 are recorded follow-ups (marked skipped in the review findings).
 
 Not covered: no live route, no real backend token, no real provider call. Partial usage on failed requests is not in the error body; P-1 should ask Ofon whether billing needs it. A validation endpoint mapping was not requested in B6.21 and is not built.
 
+### T5.6 evidence — 2026-11-25 (numeric credential version)
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T5.6, Mani, approved 2026-11-25. Align the live connection with Ofon's confirmed resolve format (C-4) |
+| Change | `credential_version` accepted only as a whole number from 1 to 10^12 in the token and in the resolve reply, kept internally as its decimal text; text, booleans, decimals, zero and negatives refused. The route passes the converted binding to the handler; the `/validate` reply returns `credential_version` as a number |
+| Files | `live/verifier.py`, `api/provider_routes.py`, `http_contract.py`; tests `live_fixtures.py` (Ofon's format: UUID scope and reference, numeric version), `test_live_verifier.py`, `test_live_reader.py`, `test_live_routes.py` |
+| Red | With the tests switched to Ofon's format, 66 live tests failed before the fix; a probe confirmed every real token was refused |
+| Green | **283/283** provider suite (twice), 12/12 service key check, old-route smoke tests pass; the probe now accepts Ofon's format |
+| Mutation | Four breaks detected: text versions accepted, zero accepted (after adding a direct version test), route skipping the conversion, validate reply returning text |
+| Reviewer decision | Awaiting Mani's review |
+
 ### T5 evidence — 2026-11-18 (live connection, local)
 
 | Item | Detail |

@@ -35,10 +35,15 @@ ENV = {
     "PROVIDER_APPROVED_TARGETS": TARGETS_ENV,
 }
 
+# Ofon's confirmed format (C-4, 2026-11-22): UUID scope and reference, numeric version.
+SCOPE_A = "2f1c6c1e-6b1f-4a6e-9d1a-3f0f2b7c9a11"
+SCOPE_B = "7a9e3c55-0d2b-4c8f-a1e6-5b4d3c2a1f00"
+REF_A = "8d7e2b4a-1c3f-4e5d-9a8b-7c6d5e4f3a2b"
+REF_B = "c4b3a2f1-9e8d-4c7b-8a6f-5e4d3c2b1a09"
 BINDING = {
-    "scope_id": "scope-A",
-    "credential_ref": "credential-A",
-    "credential_version": "v1",
+    "scope_id": SCOPE_A,
+    "credential_ref": REF_A,
+    "credential_version": 1,
     "credential_source": "customer",
     "provider": "openai",
 }

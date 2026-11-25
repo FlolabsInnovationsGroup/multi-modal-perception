@@ -29,7 +29,7 @@ from services.provider_integration.handler import Handler
 from services.provider_integration.http_contract import error_response, to_http, validation_to_http
 from services.provider_integration.live.config import load_live_settings, openai_provider_config
 from services.provider_integration.live.reader import BackendCredentialReader
-from services.provider_integration.live.verifier import JwtContextVerifier
+from services.provider_integration.live.verifier import JwtContextVerifier, requested_binding_fields
 from services.provider_integration.types import BoundaryFailure, ContextKind
 from services.provider_integration.wiring import build_handler
 
@@ -195,7 +195,11 @@ def create_router(factory: Callable[[], Optional[LiveRoute]]) -> APIRouter:
             return _denied()
         if not live.verifier.is_usable(claims, kind):  # valid token, but reused or for another route (403)
             return _respond(to_http(BoundaryFailure.create(ErrorCode.ACCESS_DENIED)))
-        return _Authorized(live=live, token=token, binding=claims.get("binding"))
+        try:
+            binding = requested_binding_fields(claims.get("binding"))  # T5.6: numeric version to text
+        except Exception:  # malformed binding in a validly signed token (403)
+            return _respond(to_http(BoundaryFailure.create(ErrorCode.ACCESS_DENIED)))
+        return _Authorized(live=live, token=token, binding=binding)
 
     async def _guarded(request: Request, kind: ContextKind, work: Callable[[_Authorized], Awaitable[JSONResponse]]):
         authorized = await _authorize(request, kind)

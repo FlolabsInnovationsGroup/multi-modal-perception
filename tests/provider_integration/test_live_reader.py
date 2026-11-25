@@ -24,11 +24,12 @@ from services.provider_integration import (
 from services.provider_integration.config import ModuleConfig
 from services.provider_integration.errors import ProviderIntegrationError
 from services.provider_integration.live.reader import BackendCredentialReader
+from services.provider_integration.live.verifier import parse_binding_claim
 from services.provider_integration.orchestrator import Orchestrator
 from services.provider_integration.types import SecretValue
 
 from fakes import LOCAL_LIMIT_PROFILE, Harness, ScriptedAdapter, make_provider_config
-from live_fixtures import BINDING, GENERATE, PROVIDER_KEY, SERVICE_SECRET, TRANSCRIBE, FakeBackend, body_json, settings
+from live_fixtures import BINDING, GENERATE, PROVIDER_KEY, SCOPE_B, SERVICE_SECRET, TRANSCRIBE, FakeBackend, body_json, settings
 
 GEN = Target(Operation.GENERATE_TEXT, "gpt-4o-mini")
 TR = Target(Operation.TRANSCRIBE_AUDIO, "gpt-4o-mini-transcribe")
@@ -38,8 +39,7 @@ TOKEN = "header.payload.signature-synthetic-token"
 def context(kind=ContextKind.INVOKE, token=TOKEN, **binding_overrides):
     values = dict(BINDING)
     values.update(binding_overrides)
-    binding = Binding(values["scope_id"], values["credential_ref"], values["credential_version"],
-                      CredentialSource(values["credential_source"]), values["provider"])
+    binding = parse_binding_claim(values)  # the same conversion the live code uses (T5.6)
     return VerifiedContext(
         binding=binding, request_id="req-1", kind=kind, allowed_targets=frozenset({GEN, TR}),
         expires_at=datetime.now(timezone.utc) + timedelta(seconds=60),
@@ -112,7 +112,7 @@ class ResolveFailureTests(ReaderTestCase):
                 await self.assertFails(ErrorCode.CREDENTIAL_UNAVAILABLE)
 
     async def test_binding_mismatch_is_denied(self):
-        for name, other in (("scope", dict(BINDING, scope_id="scope-B")), ("version", dict(BINDING, credential_version="v2")),
+        for name, other in (("scope", dict(BINDING, scope_id=SCOPE_B)), ("version", dict(BINDING, credential_version=2)),
                             ("source", dict(BINDING, credential_source="platform"))):
             with self.subTest(case=name):
                 self.backend.resolve_ok(binding=other)
@@ -194,3 +194,21 @@ class OrchestratorWithLiveReaderTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReplyVersionFormatTests(ReaderTestCase):
+    """T5.6: the resolve reply's credential_version must be the same whole number as the token's."""
+
+    async def test_numeric_reply_version_matches(self):
+        lease = await self.admit()
+        self.assertEqual(lease.binding.credential_version, "1")
+
+    async def test_reply_with_other_version_types_is_unavailable(self):
+        for name, version in (("text", "1"), ("zero", 0), ("boolean", True), ("decimal", 1.0)):
+            with self.subTest(case=name):
+                self.backend.resolve_ok(binding=dict(BINDING, credential_version=version))
+                await self.assertFails(ErrorCode.CREDENTIAL_UNAVAILABLE)
+
+    async def test_reply_for_another_version_is_denied(self):
+        self.backend.resolve_ok(binding=dict(BINDING, credential_version=2))
+        await self.assertFails(ErrorCode.ACCESS_DENIED)

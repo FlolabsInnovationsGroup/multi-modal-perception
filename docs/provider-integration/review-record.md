@@ -619,3 +619,22 @@ Decided by the lead (Mani) in conversation on 2026-11-13. These settle the open 
 **Evidence.** Trial and project environments: provider suite 275/275, service key check 12/12, new old-route smoke tests (`tests/test_legacy_routes.py`) passing with the same results as before the upgrade; `pip check` clean.
 
 **Not done.** Push, pull request and merge to `main` (a production deployment) need separate approval.
+
+## Backend answers to C-1 to C-8 — 2026-11-22
+
+**Source.** Page "M2 Backend Response", updated 2026-11-22, from Ofon (FloBrain backend), shared by Mani on 2026-11-25. Reported, not verified against backend code.
+
+| ID | Answer |
+| --- | --- |
+| C-1 Key rotation | Confirmed: publish the new key under a new `kid`, switch signing, wait 90 s, remove the old key. Multimodal re-fetches JWKS on an unknown `kid` (already built) |
+| C-2 Stale validation results | Enforced: the result is stored against the exact version; `PENDING -> ACTIVE` only if that version is still the latest non-deleted one, checked in a database transaction |
+| C-3 Issuer and audience | `iss = "flobrain-backend"`, `aud = "multimodal-perception"`, fixed constants on the backend (match the proposal) |
+| C-4 Resolve reply | Exactly `binding`, `state`, `permitted_targets`, `key`, with `Cache-Control: no-store`. **`credential_version` is a number (for example `1`)**; `scope_id` is a user UUID or `"platform"`; `credential_ref` is a UUID |
+| C-5 Activation | New backend endpoint `POST /api/keys/{credential_id}/validate/`: the backend issues a validate token, calls multimodal `/validate`, stores the result and activates the version when `valid` (subject to C-2) |
+| C-6 Company keys | `credential_source = "platform"` with `scope_id = "platform"`; the resolve endpoint checks the source against the stored value before decrypting |
+| C-7 Backend tests | Pending, in Ofon's current sprint; results to be shared |
+| C-8 Single use | Enforced across all backend instances by a database unique constraint on `(jti, kind)`; replay returns 403 |
+
+**Also reported.** The backend already sends `Authorization: Bearer {MULTIMODAL_API_KEY}` on every `/process` call, so the short-term key check can be switched on once the secret exists in AWS. Infrastructure requests (HTTPS, private network, secrets, gateway upload limit, log retention) were escalated by Ofon to the infrastructure owner. The staging URL and approved-model confirmation follow once HTTPS exists.
+
+**Finding (multimodal review, 2026-11-25).** The T5 code represents the credential version as an identifier string, as in the proposal. With Ofon's numeric `credential_version`, the token checker refuses the binding (`ACCESS_DENIED`), so every real request would fail closed. No key could be misused, but staging would fail on the first call. Proposed fix T5.6: accept a positive whole-number version in the token and the resolve reply, convert it to one canonical internal form, and refuse other types. **Approved by Mani and implemented on 2026-11-25** (evidence in the delivery plan); the `/validate` reply now returns the version as a number.

@@ -9,6 +9,8 @@ Current state (2026-10-23): T1 L1-L8 accepted.
 - **T4.1 implemented and accepted by Mani on 2026-10-23** (uncommitted; no independent reviewer).
 - **T4.2 and review fix F1 accepted by Mani on 2026-10-23** (no independent reviewer). R1-R4 fixed; full suite **194/194** in `.venv`; R5-R9 are recorded follow-ups. T4.1, T4.2 and F1 are committed locally together (not pushed).
 - **2026-11-18 security update:** packages upgraded to fix the five Dependabot alerts on `main` and the Starlette 0.36.3 advisories (branch `fix/dependency-security`, merged here). Verified first in a throwaway environment: 275/275, 12/12 and the new old-route smoke tests pass, with identical old-route behavior.
+- **2026-11-20:** the security package update (`fix/dependency-security`, pull request #22) was reviewed and merged into `main` by Mani, which deployed it to production.
+- **2026-11-22:** Ofon answered C-1 to C-8 (review record). All are settled except C-7 (backend tests, in his current sprint). His confirmed resolve reply sends `credential_version` as a number, which the T5 code refuses (fails closed): fix T5.6 is proposed. The backend already sends `MULTIMODAL_API_KEY` on every `/process` call, so step 5 now waits only for the secret's ARN from the infrastructure owner.
 - **M1 signed off 2026-11-18.** Signed off by Mani (lead, owner and reviewer) on 2026-11-18 at commit `918d7e4` on `provider-integration-clean`; 275/275 offline tests on Python 3.12.10. No independent human reviewer; R5-R9 kept as low-severity follow-ups. This is not live or production readiness.
 - **2026-11-13:** backend answers to B1-B7 received and lead decisions D-1 to D-6 recorded (review record).
 - **2026-11-15:** backend (Ofon) answered all P-1 questions and reports B-1 to B-7 built. T5 can be planned; staging waits for HTTPS and private networking.
@@ -146,6 +148,18 @@ Local only, on `provider-integration-clean`. No route is registered, no real key
 | T4.6 | D-2, B6.23 | Pure mapping from module results to HTTP status and body, with `total_tokens` and `provider_request_id`; no route registered | Mapping tests for every error code; leakage tests on bodies |
 | T3.3 | D-4 | Speech-synthesis design note: Realtime API approach, dependency needs, limits and tests. No code. **Deferred to future work by Mani on 2026-11-13; not part of this feature or its pull request. Draft kept: [speech synthesis design](speech-synthesis-design.md)** | Design note reviewed; any dependency change proposed separately |
 | P-1 | D-1 to D-6 | M2 interface proposal for Ofon: signed context claims, credential endpoint request and response, states, error mapping, limits. **Shared 2026-11-13; backend answered all of O-1 to O-11 on 2026-11-15 (review record). Clarifications C-1 to C-7 open** | Document shared by Mani; Ofon's dated answers recorded |
+
+### T5.6 evidence — 2026-11-25 (numeric credential version)
+
+| Item | Detail |
+| --- | --- |
+| Task / owner / scope | T5.6, Mani, approved 2026-11-25. Align the live connection with Ofon's confirmed resolve format (C-4) |
+| Change | `credential_version` accepted only as a whole number from 1 to 10^12 in the token and in the resolve reply, kept internally as its decimal text; text, booleans, decimals, zero and negatives refused. The route passes the converted binding to the handler; the `/validate` reply returns `credential_version` as a number |
+| Files | `live/verifier.py`, `api/provider_routes.py`, `http_contract.py`; tests `live_fixtures.py` (Ofon's format: UUID scope and reference, numeric version), `test_live_verifier.py`, `test_live_reader.py`, `test_live_routes.py` |
+| Red | With the tests switched to Ofon's format, 66 live tests failed before the fix; a probe confirmed every real token was refused |
+| Green | **283/283** provider suite (twice), 12/12 service key check, old-route smoke tests pass; the probe now accepts Ofon's format |
+| Mutation | Four breaks detected: text versions accepted, zero accepted (after adding a direct version test), route skipping the conversion, validate reply returning text |
+| Reviewer decision | Awaiting Mani's review |
 
 ### T5 evidence — 2026-11-18 (live connection, local)
 

@@ -14,12 +14,14 @@ from jwt.algorithms import ECAlgorithm
 from services.provider_integration import Binding, ContextKind, CredentialSource, ErrorCode, Operation, Target
 from services.provider_integration.errors import ProviderIntegrationError
 from services.provider_integration.live.config import load_live_settings
-from services.provider_integration.live.verifier import JwksClient, JwtContextVerifier
+from services.provider_integration.live.verifier import JwksClient, JwtContextVerifier, parse_binding_claim
 
 from live_fixtures import (
     AUDIENCE,
     BINDING,
     DROP,
+    REF_B,
+    SCOPE_B,
     ENV,
     GENERATE,
     NOW,
@@ -40,8 +42,7 @@ BOTH = frozenset({GEN_TARGET, TR_TARGET})
 def binding(**overrides):
     values = dict(BINDING)
     values.update(overrides)
-    return Binding(values["scope_id"], values["credential_ref"], values["credential_version"],
-                   CredentialSource(values["credential_source"]), values["provider"])
+    return parse_binding_claim(values)  # the same conversion the live code uses (T5.6)
 
 
 class Rig:
@@ -134,8 +135,8 @@ class RejectedTokenTests(VerifierTestCase):
                 await self.assertDenied(rig, rig.keys[0].token(**overrides))
 
     async def test_binding_mismatch_is_denied_for_every_field(self):
-        for field_name, other in (("scope_id", "scope-B"), ("credential_ref", "credential-B"),
-                                  ("credential_version", "v2"), ("credential_source", "platform"),
+        for field_name, other in (("scope_id", SCOPE_B), ("credential_ref", REF_B),
+                                  ("credential_version", 2), ("credential_source", "platform"),
                                   ("provider", "other-provider")):
             with self.subTest(field=field_name):
                 rig = Rig()
@@ -169,7 +170,7 @@ class RejectedTokenTests(VerifierTestCase):
         claims = jwt.decode(good, options={"verify_signature": False})
         hs256 = b64({"alg": "HS256", "kid": "key-1"}) + "." + payload + ".c2lnbmF0dXJl"
         impostor = SigningKey("key-1").token()  # same kid, different private key
-        tampered = header + "." + b64(dict(claims, binding=dict(BINDING, scope_id="scope-B"))) + "." + good.split(".")[2]
+        tampered = header + "." + b64(dict(claims, binding=dict(BINDING, scope_id=SCOPE_B))) + "." + good.split(".")[2]
         cases = {"alg none": unsigned, "HS256": hs256, "wrong key, same kid": impostor, "edited payload": tampered,
                  "garbage": "not-a-token", "empty": "", "non-string": 12345, "too long": "a" * 9000}
         for name, token in cases.items():
@@ -345,3 +346,52 @@ class ReviewFixTests(VerifierTestCase):
         self.assertIs(captured.get("trust_env"), False)
         self.assertIs(captured.get("verify"), True)
         self.assertEqual(captured.get("retries"), 0)
+
+
+class CredentialVersionFormatTests(VerifierTestCase):
+    """T5.6: Ofon's confirmed format (C-4) sends credential_version as a whole number."""
+
+    async def test_numeric_versions_are_accepted_and_kept_exact(self):
+        for version in (1, 2, 41, 999_999):
+            with self.subTest(version=version):
+                rig = Rig()
+                token = rig.keys[0].token(binding=dict(BINDING, credential_version=version))
+                context = await rig.verifier.verify(token, binding(credential_version=version),
+                                                    ContextKind.INVOKE, frozenset({GEN_TARGET}))
+                self.assertEqual(context.binding.credential_version, str(version))
+
+    async def test_other_version_types_are_refused(self):
+        for name, version in (("text", "1"), ("prefixed text", "v1"), ("zero", 0), ("negative", -1),
+                              ("boolean", True), ("decimal", 1.0), ("too large", 10 ** 13), ("missing", None)):
+            with self.subTest(case=name):
+                rig = Rig()
+                claim = dict(BINDING, credential_version=version)
+                if version is None:
+                    del claim["credential_version"]
+                await self.assertDenied(rig, rig.keys[0].token(binding=claim))
+
+    async def test_version_mismatch_between_token_and_request_is_denied(self):
+        rig = Rig()
+        token = rig.keys[0].token(binding=dict(BINDING, credential_version=1))
+        await self.assertDenied(rig, token, requested=binding(credential_version=2))
+
+    async def test_platform_key_with_platform_scope(self):
+        """C-6: company keys use credential_source 'platform' and scope_id 'platform'."""
+        rig = Rig()
+        claim = dict(BINDING, scope_id="platform", credential_source="platform")
+        context = await rig.verifier.verify(rig.keys[0].token(binding=claim),
+                                            binding(scope_id="platform", credential_source="platform"),
+                                            ContextKind.INVOKE, frozenset({GEN_TARGET}))
+        self.assertEqual((context.binding.scope_id, context.binding.credential_source.value), ("platform", "platform"))
+
+
+class VersionParsingTests(unittest.TestCase):
+    """T5.6: the version rule itself, isolated from any other binding comparison."""
+
+    def test_only_positive_whole_numbers_parse(self):
+        self.assertEqual(parse_binding_claim(dict(BINDING, credential_version=1)).credential_version, "1")
+        for name, version in (("text", "1"), ("prefixed text", "v1"), ("zero", 0), ("negative", -3),
+                              ("boolean", True), ("decimal", 2.0), ("too large", 10 ** 13), ("none", None)):
+            with self.subTest(case=name), self.assertRaises(ProviderIntegrationError) as caught:
+                parse_binding_claim(dict(BINDING, credential_version=version))
+            self.assertIs(caught.exception.code, ErrorCode.ACCESS_DENIED)
