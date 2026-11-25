@@ -159,7 +159,7 @@ Local only, on `provider-integration-clean`. No route is registered, no real key
 | Red | With the tests switched to Ofon's format, 66 live tests failed before the fix; a probe confirmed every real token was refused |
 | Green | **283/283** provider suite (twice), 12/12 service key check, old-route smoke tests pass; the probe now accepts Ofon's format |
 | Mutation | Four breaks detected: text versions accepted, zero accepted (after adding a direct version test), route skipping the conversion, validate reply returning text |
-| Reviewer decision | Awaiting Mani's review |
+| Reviewer decision | Accepted by Mani on 2026-11-25 (no independent reviewer) |
 
 ### T5 evidence — 2026-11-18 (live connection, local)
 
