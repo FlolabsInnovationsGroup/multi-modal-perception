@@ -1,60 +1,183 @@
-name: Deploy to AWS ECS Fargate
+
+name: Deploy Multi-Modal Perception to EC2
 
 on:
   push:
     branches:
       - main
 
-concurrency:
-  group: production-ecs-deploy
-  cancel-in-progress: true
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: multimodal-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    name: Build, Push & Deploy
+    name: Deploy to EC2
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      AWS_REGION: us-east-1
+      APP_DIR: /home/ubuntu/multi-modal-perception
+      INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
 
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Configure AWS Credentials via OIDC
+          if [ -z "${INSTANCE_ID}" ]; then
+            echo "Missing GitHub repository variable: EC2_INSTANCE_ID"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-Multimodal-Deploy
 
-      - name: Log in to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build, Tag, and Push Container Image to Amazon ECR
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ github.sha }}
+      - name: Deploy application through AWS SSM
+        shell: bash
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          set -euo pipefail
 
-      - name: Render Updated ECS Task Definition
-        id: render-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: .aws/task-definition.json
-          container-name: ${{ vars.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+          DEPLOY_SCRIPT=$(cat <<'SCRIPT'
+          set -Eeuo pipefail
 
-      - name: Deploy Task Definition to ECS Fargate
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
-          service: ${{ vars.ECS_SERVICE }}
-          cluster: ${{ vars.ECS_CLUSTER }}
-          wait-for-service-stability: true
+          APP_DIR="/home/ubuntu/multi-modal-perception"
+
+          echo "Starting deployment..."
+
+          cd "$APP_DIR"
+
+          # Ensure the server is on the expected branch.
+          CURRENT_BRANCH=$(sudo -u ubuntu git -C "$APP_DIR" branch --show-current)
+
+          if [ "$CURRENT_BRANCH" != "main" ]; then
+            echo "Expected main branch, found: $CURRENT_BRANCH"
+            exit 1
+          fi
+
+          # Do not overwrite tracked server-side modifications.
+          if ! sudo -u ubuntu git -C "$APP_DIR" diff --quiet ||
+             ! sudo -u ubuntu git -C "$APP_DIR" diff --cached --quiet; then
+            echo "Tracked local changes detected. Aborting deployment."
+            exit 1
+          fi
+
+          # Fetch the latest main branch.
+          sudo -u ubuntu git -C "$APP_DIR" fetch origin main
+
+          # Make EC2 match the latest main commit.
+          sudo -u ubuntu git -C "$APP_DIR" reset --hard origin/main
+
+          # Verify the Python environment and dependencies file.
+          test -x "$APP_DIR/.venv/bin/python"
+          test -f "$APP_DIR/requirements.txt"
+
+          # Install/update Python dependencies.
+          sudo -u ubuntu "$APP_DIR/.venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            -r "$APP_DIR/requirements.txt"
+
+          # Restart the FastAPI service.
+          sudo -n systemctl restart multimodal-perception
+
+          # Confirm systemd reports the service as active.
+          sudo -n systemctl is-active --quiet multimodal-perception
+
+          # Wait for the API health endpoint.
+          HEALTHY=false
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then
+              HEALTHY=true
+              break
+            fi
+
+            echo "Waiting for API startup... attempt $attempt/30"
+            sleep 5
+          done
+
+          if [ "$HEALTHY" != "true" ]; then
+            echo "Health check failed."
+            sudo -n systemctl status multimodal-perception --no-pager || true
+            sudo -n journalctl -u multimodal-perception -n 50 --no-pager || true
+            exit 1
+          fi
+
+          echo ""
+          echo "Deployment completed successfully."
+          echo "Deployed commit: $(sudo -u ubuntu git -C "$APP_DIR" rev-parse --short HEAD)"
+          SCRIPT
+          )
+
+          # Safely encode the deployment script as SSM parameters.
+          jq -n --arg script "$DEPLOY_SCRIPT" \
+            '{commands: ["bash -lc " + ($script | @sh)]}' \
+            > ssm-params.json
+
+          echo "Sending deployment command to EC2..."
+
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Multimodal deployment: $GITHUB_SHA" \
+            --parameters file://ssm-params.json \
+            --max-concurrency "1" \
+            --max-errors "0" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $CMD_ID"
+
+          STATUS="Pending"
+
+          # Wait up to 15 minutes for SSM execution.
+          for attempt in $(seq 1 90); do
+            INVOCATION=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              2>/dev/null || true)
+
+            STATUS=$(echo "$INVOCATION" | jq -r '.Status // "Pending"')
+
+            case "$STATUS" in
+              Success|Failed|Cancelled|TimedOut)
+                break
+                ;;
+            esac
+
+            sleep 10
+          done
+
+          # Retrieve deployment output.
+          INVOCATION=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID")
+
+          echo ""
+          echo "===== DEPLOYMENT OUTPUT ====="
+          echo "$INVOCATION" | jq -r '.StandardOutputContent // ""'
+
+          echo ""
+          echo "===== DEPLOYMENT ERRORS ====="
+          echo "$INVOCATION" | jq -r '.StandardErrorContent // ""'
+
+          STATUS=$(echo "$INVOCATION" | jq -r '.Status // "Unknown"')
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "Deployment failed. SSM status: $STATUS"
+            exit 1
+          fi
+
+          echo "Deployment successful."
